@@ -1,0 +1,89 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-cyber-border;
+  }
+
+  body {
+    @apply bg-cyber-bg text-gray-100 font-mono;
+  }
+
+  ::-webkit-scrollbar {
+    @apply w-2 h-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-cyber-surface;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-cyber-border rounded;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-cyber-primary/30;
+  }
+}
+
+@layer components {
+  .cyber-card {
+    @apply bg-cyber-surface border border-cyber-border rounded-lg p-6;
+  }
+
+  .cyber-button {
+    @apply px-4 py-2 bg-cyber-primary text-cyber-bg font-semibold rounded
+           hover:bg-cyber-primary/80 transition-colors duration-200;
+  }
+
+  .cyber-button-secondary {
+    @apply px-4 py-2 bg-cyber-surface border border-cyber-primary text-cyber-primary
+           font-semibold rounded hover:bg-cyber-primary/10 transition-colors duration-200;
+  }
+
+  .cyber-input {
+    @apply w-full px-4 py-2 bg-cyber-bg border border-cyber-border rounded
+           text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyber-primary
+           transition-colors duration-200;
+  }
+
+  .cyber-badge {
+    @apply px-2 py-1 text-xs font-semibold rounded;
+  }
+
+  .cyber-badge-critical {
+    @apply cyber-badge bg-cyber-danger/20 text-cyber-danger border border-cyber-danger/50;
+  }
+
+  .cyber-badge-high {
+    @apply cyber-badge bg-orange-500/20 text-orange-400 border border-orange-500/50;
+  }
+
+  .cyber-badge-medium {
+    @apply cyber-badge bg-cyber-warning/20 text-cyber-warning border border-cyber-warning/50;
+  }
+
+  .cyber-badge-low {
+    @apply cyber-badge bg-blue-500/20 text-blue-400 border border-blue-500/50;
+  }
+
+  .cyber-badge-info {
+    @apply cyber-badge bg-cyber-accent/20 text-cyber-accent border border-cyber-accent/50;
+  }
+
+  .glow-text {
+    @apply text-cyber-primary;
+    text-shadow: 0 0 10px rgba(0, 240, 255, 0.5);
+  }
+
+  .cyber-grid {
+    background-image: 
+      linear-gradient(rgba(30, 36, 66, 0.5) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30, 36, 66, 0.5) 1px, transparent 1px);
+    background-size: 20px 20px;
+  }
+}

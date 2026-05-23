@@ -1,0 +1,23 @@
+{
+  "name": "@cyberintel/ai-router",
+  "version": "1.0.0",
+  "main": "dist/index.js",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@cyberintel/shared": "*",
+    "fastify": "^4.26.2",
+    "@anthropic-ai/sdk": "^0.20.6",
+    "openai": "^4.38.5",
+    "axios": "^1.6.8",
+    "ioredis": "^5.4.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "tsx": "^4.7.2",
+    "typescript": "^5.4.5"
+  }
+}

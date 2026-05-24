@@ -35,6 +35,7 @@
     "integrations",
     "graph-engine",
     "ai-router",
+    "telegram-bot",
     "auth",
     "shared"
   ],

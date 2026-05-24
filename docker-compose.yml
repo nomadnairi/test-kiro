@@ -1,6 +1,29 @@
-version: '3.9'
+# ============================================================================
+# CYBERINTEL PLATFORM - DOCKER COMPOSE CONFIGURATION
+# ============================================================================
+# 
+# This file supports TWO deployment modes:
+#
+# 1. FULL MODE (Default - Commented Out Heavy Services)
+#    - All services enabled
+#    - Local AI inference (Ollama)
+#    - Full-text search (Elasticsearch)
+#    - Requires: 8+ vCPU, 16+ GB RAM
+#
+# 2. LIGHTWEIGHT VPS MODE (Current Configuration)
+#    - Heavy services disabled
+#    - API-based AI only (OpenAI, Anthropic, etc.)
+#    - Reduced Neo4j memory
+#    - Requires: 2 vCPU, 4 GB RAM
+#
+# To switch modes: See LIGHTWEIGHT_MODE.md
+# ============================================================================
 
 services:
+  # ============================================================================
+  # CORE DATABASES - ALWAYS ENABLED
+  # ============================================================================
+
   # PostgreSQL Database
   postgres:
     image: postgres:16-alpine
@@ -23,20 +46,25 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 2G
+          cpus: '1'          # Reduced from 2 for VPS mode
+          memory: 512M       # Reduced from 2G for VPS mode
     networks:
       - cyberintel-network
 
-  # Neo4j Graph Database
+  # Neo4j Graph Database - LIGHTWEIGHT MODE
+  # Memory reduced from 3G to 512M for VPS deployment
+  # Plugins disabled to save memory
   neo4j:
     image: neo4j:5.18-community
     container_name: cyberintel-neo4j
     environment:
       NEO4J_AUTH: neo4j/cyberintel
-      NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
-      NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
-      NEO4J_dbms_memory_heap_max__size: 2G
+      # PLUGINS DISABLED FOR LIGHTWEIGHT MODE - Uncomment for full mode:
+      # NEO4J_PLUGINS: '["apoc", "graph-data-science"]'
+      # NEO4J_dbms_security_procedures_unrestricted: apoc.*,gds.*
+      NEO4J_dbms_memory_heap_max__size: 256M      # Reduced from 2G
+      NEO4J_dbms_memory_pagecache_size: 128M      # Added for memory control
+      NEO4J_dbms_memory_transaction_max__size: 64M # Added for memory control
     ports:
       - "7474:7474"
       - "7687:7687"
@@ -52,8 +80,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 3G
+          cpus: '1'          # Reduced from 2
+          memory: 512M       # Reduced from 3G
     networks:
       - cyberintel-network
 
@@ -61,7 +89,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: cyberintel-redis
-    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru  # Reduced from 512mb
     ports:
       - "6379:6379"
     volumes:
@@ -75,59 +103,85 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '0.5'        # Reduced from 1
+          memory: 256M       # Reduced from 512M
     networks:
       - cyberintel-network
 
-  # Elasticsearch
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
-    container_name: cyberintel-elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
-    ports:
-      - "9200:9200"
-      - "9300:9300"
-    volumes:
-      - elasticsearch_data:/usr/share/elasticsearch/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-    networks:
-      - cyberintel-network
+  # ============================================================================
+  # HEAVY SERVICES - DISABLED IN LIGHTWEIGHT VPS MODE
+  # ============================================================================
+  # 
+  # These services are COMMENTED OUT to save resources on low-spec VPS.
+  # Total RAM saved: ~10 GB
+  # 
+  # To enable FULL MODE:
+  # 1. Uncomment the services below
+  # 2. Update Backend dependencies to include elasticsearch
+  # 3. Update AI Router dependencies to include ollama
+  # 4. See LIGHTWEIGHT_MODE.md for detailed instructions
+  # ============================================================================
 
-  # Ollama (Local AI)
-  ollama:
-    image: ollama/ollama:latest
-    container_name: cyberintel-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: '4'
-          memory: 8G
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-    networks:
-      - cyberintel-network
+  # # Elasticsearch - DISABLED IN LIGHTWEIGHT MODE
+  # # RAM Usage: ~2 GB
+  # # Purpose: Full-text search for entities and IOCs
+  # # When to enable: When you need advanced search capabilities
+  # # Alternative: Use PostgreSQL LIKE queries (slower but works)
+  # elasticsearch:
+  #   image: docker.elastic.co/elasticsearch/elasticsearch:8.13.0
+  #   container_name: cyberintel-elasticsearch
+  #   environment:
+  #     - discovery.type=single-node
+  #     - xpack.security.enabled=false
+  #     - "ES_JAVA_OPTS=-Xms1g -Xmx1g"
+  #   ports:
+  #     - "9200:9200"
+  #     - "9300:9300"
+  #   volumes:
+  #     - elasticsearch_data:/usr/share/elasticsearch/data
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 5
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '2'
+  #         memory: 2G
+  #   networks:
+  #     - cyberintel-network
+
+  # # Ollama (Local AI) - DISABLED IN LIGHTWEIGHT MODE
+  # # RAM Usage: ~8 GB (with models loaded)
+  # # Purpose: Local LLM inference (privacy, no API costs)
+  # # When to enable: When you have GPU and want local AI
+  # # Alternative: Use API-based providers (OpenAI, Anthropic, Groq)
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: cyberintel-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama_data:/root/.ollama
+  #   restart: unless-stopped
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         cpus: '4'
+  #         memory: 8G
+  #       reservations:
+  #         devices:
+  #           - driver: nvidia
+  #             count: all
+  #             capabilities: [gpu]
+  #   networks:
+  #     - cyberintel-network
+
+  # ============================================================================
+  # CORE SERVICES - ALWAYS ENABLED
+  # ============================================================================
 
   # API Gateway
   gateway:
@@ -164,12 +218,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1G
+          cpus: '1'          # Reduced from 2 for VPS mode
+          memory: 512M       # Reduced from 1G for VPS mode
     networks:
       - cyberintel-network
 
-  # Backend Service
+  # Backend Service - LIGHTWEIGHT MODE
+  # Elasticsearch dependency removed (commented out)
   backend:
     build:
       context: ./backend
@@ -185,7 +240,8 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=cyberintel
       - REDIS_URL=redis://redis:6379
-      - ELASTICSEARCH_URL=http://elasticsearch:9200
+      # ELASTICSEARCH DISABLED IN LIGHTWEIGHT MODE:
+      # - ELASTICSEARCH_URL=http://elasticsearch:9200
       - LOG_LEVEL=info
     depends_on:
       postgres:
@@ -194,8 +250,9 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      elasticsearch:
-        condition: service_healthy
+      # ELASTICSEARCH DEPENDENCY REMOVED FOR LIGHTWEIGHT MODE:
+      # elasticsearch:
+      #   condition: service_healthy
     volumes:
       - ./backend:/app
       - /app/node_modules
@@ -210,8 +267,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1G
+          cpus: '1'          # Reduced from 2
+          memory: 512M       # Reduced from 1G
     networks:
       - cyberintel-network
 
@@ -248,12 +305,13 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '0.5'        # Reduced from 1
+          memory: 256M       # Reduced from 512M
     networks:
       - cyberintel-network
 
-  # AI Router
+  # AI Router - LIGHTWEIGHT MODE
+  # Ollama dependency removed (use API providers only)
   ai-router:
     build:
       context: ./ai-router
@@ -265,7 +323,8 @@ services:
       - NODE_ENV=development
       - PORT=8003
       - REDIS_URL=redis://redis:6379
-      - OLLAMA_URL=http://ollama:11434
+      # OLLAMA DISABLED IN LIGHTWEIGHT MODE:
+      # - OLLAMA_URL=http://ollama:11434
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
@@ -274,6 +333,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+      # OLLAMA DEPENDENCY REMOVED FOR LIGHTWEIGHT MODE
     volumes:
       - ./ai-router:/app
       - /app/node_modules
@@ -288,8 +348,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '0.5'        # Reduced from 1
+          memory: 256M       # Reduced from 512M
     networks:
       - cyberintel-network
 
@@ -328,8 +388,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '2'
-          memory: 1G
+          cpus: '1'          # Reduced from 2
+          memory: 512M       # Reduced from 1G
     networks:
       - cyberintel-network
 
@@ -358,11 +418,10 @@ services:
     command: python worker.py
     restart: unless-stopped
     deploy:
-      replicas: 3
       resources:
         limits:
-          cpus: '1'
-          memory: 1G
+          cpus: '0.5'        # Reduced from 1
+          memory: 512M       # Reduced from 1G
     networks:
       - cyberintel-network
 
@@ -388,8 +447,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '0.5'        # Reduced from 1
+          memory: 256M       # Reduced from 512M
     networks:
       - cyberintel-network
 
@@ -426,8 +485,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '0.5'
-          memory: 256M
+          cpus: '0.25'       # Reduced from 0.5
+          memory: 128M       # Reduced from 256M
     networks:
       - cyberintel-network
 
@@ -453,8 +512,8 @@ services:
     deploy:
       resources:
         limits:
-          cpus: '1'
-          memory: 512M
+          cpus: '0.5'        # Reduced from 1
+          memory: 256M       # Reduced from 512M
     networks:
       - cyberintel-network
 

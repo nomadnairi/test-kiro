@@ -186,8 +186,8 @@ services:
   # API Gateway
   gateway:
     build:
-      context: ./gateway
-      dockerfile: Dockerfile
+      context: .              # Monorepo root
+      dockerfile: gateway/Dockerfile
     container_name: cyberintel-gateway
     ports:
       - "8000:8000"
@@ -227,8 +227,8 @@ services:
   # Elasticsearch dependency removed (commented out)
   backend:
     build:
-      context: ./backend
-      dockerfile: Dockerfile
+      context: .              # Monorepo root
+      dockerfile: backend/Dockerfile
     container_name: cyberintel-backend
     ports:
       - "8001:8001"
@@ -275,8 +275,8 @@ services:
   # Orchestrator
   orchestrator:
     build:
-      context: ./orchestrator
-      dockerfile: Dockerfile
+      context: .              # Monorepo root
+      dockerfile: orchestrator/Dockerfile
     container_name: cyberintel-orchestrator
     ports:
       - "8002:8002"
@@ -314,8 +314,8 @@ services:
   # Ollama dependency removed (use API providers only)
   ai-router:
     build:
-      context: ./ai-router
-      dockerfile: Dockerfile
+      context: .              # Monorepo root
+      dockerfile: ai-router/Dockerfile
     container_name: cyberintel-ai-router
     ports:
       - "8003:8003"
@@ -356,8 +356,8 @@ services:
   # Graph Engine
   graph-engine:
     build:
-      context: ./graph-engine
-      dockerfile: Dockerfile
+      context: .              # Monorepo root
+      dockerfile: graph-engine/Dockerfile
     container_name: cyberintel-graph-engine
     ports:
       - "8004:8004"
@@ -428,8 +428,8 @@ services:
   # Frontend
   frontend:
     build:
-      context: ./frontend
-      dockerfile: Dockerfile
+      context: .              # Monorepo root
+      dockerfile: frontend/Dockerfile
     container_name: cyberintel-frontend
     ports:
       - "3000:3000"
@@ -455,8 +455,8 @@ services:
   # Telegram Bot
   telegram-bot:
     build:
-      context: ./telegram-bot
-      dockerfile: Dockerfile
+      context: .              # Monorepo root
+      dockerfile: telegram-bot/Dockerfile
     container_name: cyberintel-telegram-bot
     ports:
       - "8006:8006"

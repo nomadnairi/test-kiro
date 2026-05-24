@@ -21,7 +21,7 @@ COPY graph-engine/package*.json ./graph-engine/
 
 # Install ALL workspace dependencies from root
 # This resolves @cyberintel/shared correctly
-RUN npm ci --workspaces --if-present
+RUN npm install --workspaces --if-present
 
 # Copy shared library source code
 COPY shared/ ./shared/
@@ -54,7 +54,7 @@ COPY --from=builder /monorepo/graph-engine/package*.json ./graph-engine/
 COPY --from=builder /monorepo/graph-engine/dist ./graph-engine/dist
 
 # Install production dependencies only
-RUN npm ci --workspace=graph-engine --omit=dev --ignore-scripts
+RUN npm install --workspace=graph-engine --omit=dev --ignore-scripts
 
 WORKDIR /app/graph-engine
 

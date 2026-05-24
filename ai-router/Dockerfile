@@ -21,7 +21,7 @@ COPY ai-router/package*.json ./ai-router/
 
 # Install ALL workspace dependencies from root
 # This resolves @cyberintel/shared correctly
-RUN npm ci --workspaces --if-present
+RUN npm install --workspaces --if-present
 
 # Copy shared library source code
 COPY shared/ ./shared/
@@ -54,7 +54,7 @@ COPY --from=builder /monorepo/ai-router/package*.json ./ai-router/
 COPY --from=builder /monorepo/ai-router/dist ./ai-router/dist
 
 # Install production dependencies only
-RUN npm ci --workspace=ai-router --omit=dev --ignore-scripts
+RUN npm install --workspace=ai-router --omit=dev --ignore-scripts
 
 WORKDIR /app/ai-router
 

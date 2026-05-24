@@ -17,7 +17,7 @@ COPY package*.json ./
 COPY frontend/package*.json ./frontend/
 
 # Install ALL workspace dependencies from root
-RUN npm ci --workspaces --if-present
+RUN npm install --workspaces --if-present
 
 # Copy frontend source code
 COPY frontend/ ./frontend/

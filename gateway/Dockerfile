@@ -21,7 +21,7 @@ COPY gateway/package*.json ./gateway/
 
 # Install ALL workspace dependencies from root
 # This resolves @cyberintel/shared correctly
-RUN npm ci --workspaces --if-present
+RUN npm install --workspaces --if-present
 
 # Copy shared library source code
 COPY shared/ ./shared/
@@ -54,7 +54,7 @@ COPY --from=builder /monorepo/gateway/package*.json ./gateway/
 COPY --from=builder /monorepo/gateway/dist ./gateway/dist
 
 # Install production dependencies only
-RUN npm ci --workspace=gateway --omit=dev --ignore-scripts
+RUN npm install --workspace=gateway --omit=dev --ignore-scripts
 
 WORKDIR /app/gateway
 

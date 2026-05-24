@@ -21,7 +21,7 @@ COPY orchestrator/package*.json ./orchestrator/
 
 # Install ALL workspace dependencies from root
 # This resolves @cyberintel/shared correctly
-RUN npm ci --workspaces --if-present
+RUN npm install --workspaces --if-present
 
 # Copy shared library source code
 COPY shared/ ./shared/
@@ -54,7 +54,7 @@ COPY --from=builder /monorepo/orchestrator/package*.json ./orchestrator/
 COPY --from=builder /monorepo/orchestrator/dist ./orchestrator/dist
 
 # Install production dependencies only
-RUN npm ci --workspace=orchestrator --omit=dev --ignore-scripts
+RUN npm install --workspace=orchestrator --omit=dev --ignore-scripts
 
 WORKDIR /app/orchestrator
 

@@ -21,7 +21,7 @@ COPY telegram-bot/package*.json ./telegram-bot/
 
 # Install ALL workspace dependencies from root
 # This resolves @cyberintel/shared correctly
-RUN npm ci --workspaces --if-present
+RUN npm install --workspaces --if-present
 
 # Copy shared library source code
 COPY shared/ ./shared/
@@ -54,7 +54,7 @@ COPY --from=builder /monorepo/telegram-bot/package*.json ./telegram-bot/
 COPY --from=builder /monorepo/telegram-bot/dist ./telegram-bot/dist
 
 # Install production dependencies only
-RUN npm ci --workspace=telegram-bot --omit=dev --ignore-scripts
+RUN npm install --workspace=telegram-bot --omit=dev --ignore-scripts
 
 WORKDIR /app/telegram-bot
 

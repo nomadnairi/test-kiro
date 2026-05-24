@@ -24,7 +24,7 @@ COPY integrations/package*.json ./integrations/
 
 # Install ALL workspace dependencies from root
 # This resolves @cyberintel/shared and other internal packages correctly
-RUN npm ci --workspaces --if-present
+RUN npm install --workspaces --if-present
 
 # Copy shared library source code
 COPY shared/ ./shared/
@@ -68,7 +68,7 @@ COPY --from=builder /monorepo/backend/package*.json ./backend/
 COPY --from=builder /monorepo/backend/dist ./backend/dist
 
 # Install production dependencies only
-RUN npm ci --workspace=backend --omit=dev --ignore-scripts
+RUN npm install --workspace=backend --omit=dev --ignore-scripts
 
 WORKDIR /app/backend
 

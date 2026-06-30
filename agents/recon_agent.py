@@ -1,6 +1,7 @@
 from base_agent import BaseAgent
 from typing import Dict, Any, List
-import httpx
+import asyncio
+import socket
 
 
 class ReconAgent(BaseAgent):
@@ -99,7 +100,20 @@ class ReconAgent(BaseAgent):
     
     async def reverse_dns(self, ip: str) -> Dict[str, Any]:
         """Reverse DNS lookup"""
-        # TODO: Implement reverse DNS
+        try:
+            loop = asyncio.get_running_loop()
+            hostname, _ = await loop.getnameinfo((ip, 0))
+            if hostname != ip:
+                return {
+                    "type": "DOMAIN",
+                    "value": hostname,
+                    "source": "reverse_dns"
+                }
+        except socket.gaierror as e:
+            self.log_action("Reverse DNS lookup failed", {"ip": ip, "error": str(e)})
+        except Exception as e:
+            self.log_action("Reverse DNS lookup error", {"ip": ip, "error": str(e)})
+
         return {}
     
     async def get_shodan_data(self, ip: str) -> Dict[str, Any]:

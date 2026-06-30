@@ -145,12 +145,18 @@ export class TaskQueue {
     const queueSize = await this.redis.zcard(this.queueName);
     const keys = await this.redis.keys('task:*');
     
-    const tasks = await Promise.all(
-      keys.map(async (key) => {
-        const data = await this.redis.get(key);
-        return data ? JSON.parse(data) : null;
-      })
-    );
+    const tasks: (Task | null)[] = [];
+    const chunkSize = 1000;
+
+    for (let i = 0; i < keys.length; i += chunkSize) {
+      const chunk = keys.slice(i, i + chunkSize);
+      if (chunk.length > 0) {
+        const data = await this.redis.mget(...chunk);
+        for (const item of data) {
+          tasks.push(item ? JSON.parse(item) : null);
+        }
+      }
+    }
 
     const statusCounts = tasks.reduce((acc, task) => {
       if (task) {

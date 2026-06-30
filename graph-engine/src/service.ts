@@ -13,10 +13,7 @@ export class GraphService {
   async createNode(label: string, properties: Record<string, any>): Promise<any> {
     const session = this.driver.session();
     try {
-      const result = await session.run(
-        `CREATE (n:${label} $properties) RETURN n`,
-        { properties }
-      );
+      const result = await session.run(`CREATE (n:${label} $properties) RETURN n`, { properties });
       return result.records[0].get('n').properties;
     } finally {
       await session.close();
@@ -47,7 +44,7 @@ export class GraphService {
     const session = this.driver.session();
     try {
       const result = await session.run(cypher, params);
-      return result.records.map(record => record.toObject());
+      return result.records.map((record) => record.toObject());
     } finally {
       await session.close();
     }
@@ -65,7 +62,7 @@ export class GraphService {
       const nodes = new Map();
       const edges = new Map();
 
-      result.records.forEach(record => {
+      result.records.forEach((record) => {
         const pathNodes = record.get('nodes');
         const pathRels = record.get('relationships');
 
@@ -106,15 +103,23 @@ export class GraphService {
         { sourceId, targetId }
       );
 
-      return result.records.map(record => {
+      return result.records.map((record) => {
         const path = record.get('path');
-        return {
-          nodes: path.segments.map((seg: any) => seg.start.properties),
-          relationships: path.segments.map((seg: any) => ({
+        const segments = path.segments;
+        const len = segments.length;
+        const nodes = new Array(len);
+        const relationships = new Array(len);
+
+        for (let i = 0; i < len; i++) {
+          const seg = segments[i];
+          nodes[i] = seg.start.properties;
+          relationships[i] = {
             type: seg.relationship.type,
             properties: seg.relationship.properties,
-          })),
-        };
+          };
+        }
+
+        return { nodes, relationships };
       });
     } finally {
       await session.close();

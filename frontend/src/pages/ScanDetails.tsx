@@ -10,7 +10,9 @@ export default function ScanDetails() {
   const { data: results, isLoading } = useQuery({
     queryKey: ['scan-results', scanId],
     queryFn: async () => {
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/scans/${scanId}/results`);
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL}/api/scans/${scanId}/results`
+      );
       return response.data;
     },
   });
@@ -40,8 +42,8 @@ export default function ScanDetails() {
             scan?.status === 'COMPLETED'
               ? 'bg-cyber-accent/20 text-cyber-accent'
               : scan?.status === 'RUNNING'
-              ? 'bg-cyber-warning/20 text-cyber-warning'
-              : 'bg-gray-500/20 text-gray-400'
+                ? 'bg-cyber-warning/20 text-cyber-warning'
+                : 'bg-gray-500/20 text-gray-400'
           }`}
         >
           {scan?.status}

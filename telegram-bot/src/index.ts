@@ -93,28 +93,32 @@ Example:
 // Command: /scan
 bot.command('scan', async (ctx) => {
   const args = ctx.message.text.split(' ').slice(1);
-  
+
   if (args.length === 0) {
     return ctx.reply('❌ Usage: /scan <target>\nExample: /scan example.com');
   }
 
   const target = args[0];
-  
+
   await ctx.reply(`🔍 Starting scan for: ${target}\nThis may take a few minutes...`);
 
   try {
-    const response = await axios.post(`${API_URL}/api/scans`, {
-      target,
-      autoRecon: true,
-    }, {
-      headers: {
-        'Authorization': `Bearer ${await getUserToken(ctx.from!.id)}`,
+    const response = await axios.post(
+      `${API_URL}/api/scans`,
+      {
+        target,
+        autoRecon: true,
       },
-      timeout: 10000, // 10 second timeout
-    });
+      {
+        headers: {
+          Authorization: `Bearer ${await getUserToken(ctx.from!.id)}`,
+        },
+        timeout: 10000, // 10 second timeout
+      }
+    );
 
     const scanId = response.data.scanId;
-    
+
     // Store scan for user
     await redis.set(`telegram:scan:${ctx.from!.id}:${scanId}`, target, 'EX', 86400);
 
@@ -128,7 +132,6 @@ Use /report ${scanId} to get the full report.`);
 
     // Subscribe to scan updates
     subscribeToScanUpdates(ctx, scanId);
-
   } catch (error: any) {
     logger.error('Scan command failed', error);
     await ctx.reply(`❌ Failed to start scan: ${error.response?.data?.message || error.message}`);
@@ -138,19 +141,19 @@ Use /report ${scanId} to get the full report.`);
 // Command: /ioc
 bot.command('ioc', async (ctx) => {
   const args = ctx.message.text.split(' ').slice(1);
-  
+
   if (args.length === 0) {
     return ctx.reply('❌ Usage: /ioc <indicator>\nExample: /ioc 1.2.3.4');
   }
 
   const indicator = args[0];
-  
+
   await ctx.reply(`🔍 Checking IOC: ${indicator}...`);
 
   try {
     const response = await axios.get(`${API_URL}/api/iocs?q=${indicator}`, {
       headers: {
-        'Authorization': `Bearer ${await getUserToken(ctx.from!.id)}`,
+        Authorization: `Bearer ${await getUserToken(ctx.from!.id)}`,
       },
       timeout: 5000,
     });
@@ -171,7 +174,6 @@ Source: ${ioc.source}
 Confidence: ${ioc.confidence}%
 
 Description: ${ioc.description || 'N/A'}`);
-
   } catch (error: any) {
     logger.error('IOC command failed', error);
     await ctx.reply(`❌ Failed to check IOC: ${error.response?.data?.message || error.message}`);
@@ -181,19 +183,19 @@ Description: ${ioc.description || 'N/A'}`);
 // Command: /entity
 bot.command('entity', async (ctx) => {
   const args = ctx.message.text.split(' ').slice(1);
-  
+
   if (args.length === 0) {
     return ctx.reply('❌ Usage: /entity <value>\nExample: /entity example.com');
   }
 
   const value = args[0];
-  
+
   await ctx.reply(`🔍 Searching entity: ${value}...`);
 
   try {
     const response = await axios.get(`${API_URL}/api/entities?q=${value}`, {
       headers: {
-        'Authorization': `Bearer ${await getUserToken(ctx.from!.id)}`,
+        Authorization: `Bearer ${await getUserToken(ctx.from!.id)}`,
       },
       timeout: 5000,
     });
@@ -214,29 +216,30 @@ First Seen: ${new Date(entity.first_seen).toLocaleDateString()}
 Last Seen: ${new Date(entity.last_seen).toLocaleDateString()}
 
 Use /graph ${entity.id} to view relationships.`);
-
   } catch (error: any) {
     logger.error('Entity command failed', error);
-    await ctx.reply(`❌ Failed to search entity: ${error.response?.data?.message || error.message}`);
+    await ctx.reply(
+      `❌ Failed to search entity: ${error.response?.data?.message || error.message}`
+    );
   }
 });
 
 // Command: /report
 bot.command('report', async (ctx) => {
   const args = ctx.message.text.split(' ').slice(1);
-  
+
   if (args.length === 0) {
     return ctx.reply('❌ Usage: /report <scanId>');
   }
 
   const scanId = args[0];
-  
+
   await ctx.reply(`📄 Generating report for scan: ${scanId}...`);
 
   try {
     const response = await axios.get(`${API_URL}/api/scans/${scanId}/results`, {
       headers: {
-        'Authorization': `Bearer ${await getUserToken(ctx.from!.id)}`,
+        Authorization: `Bearer ${await getUserToken(ctx.from!.id)}`,
       },
       timeout: 10000,
     });
@@ -257,29 +260,29 @@ Progress: ${scan.progress}%
 ${formatTopFindings(entities, iocs)}
 
 View full report: ${API_URL}/scans/${scanId}`);
-
   } catch (error: any) {
     logger.error('Report command failed', error);
-    await ctx.reply(`❌ Failed to generate report: ${error.response?.data?.message || error.message}`);
+    await ctx.reply(
+      `❌ Failed to generate report: ${error.response?.data?.message || error.message}`
+    );
   }
 });
 
 // Command: /breach
 bot.command('breach', async (ctx) => {
   const args = ctx.message.text.split(' ').slice(1);
-  
+
   if (args.length === 0) {
     return ctx.reply('❌ Usage: /breach <email>\nExample: /breach user@example.com');
   }
 
   const email = args[0];
-  
+
   await ctx.reply(`🔍 Checking breach exposure for: ${email}...`);
 
   try {
     // TODO: Implement breach check API endpoint
     await ctx.reply(`⚠️ Breach check feature coming soon!`);
-
   } catch (error: any) {
     logger.error('Breach command failed', error);
     await ctx.reply(`❌ Failed to check breach: ${error.message}`);
@@ -289,16 +292,18 @@ bot.command('breach', async (ctx) => {
 // Command: /threatfeed
 bot.command('threatfeed', async (ctx) => {
   const userId = ctx.from!.id;
-  
+
   // Toggle subscription
   const subscribed = await redis.get(`telegram:threatfeed:${userId}`);
-  
+
   if (subscribed) {
     await redis.del(`telegram:threatfeed:${userId}`);
     await ctx.reply('❌ Unsubscribed from threat feed');
   } else {
     await redis.set(`telegram:threatfeed:${userId}`, '1');
-    await ctx.reply('✅ Subscribed to threat feed!\n\nYou will receive real-time threat intelligence updates.');
+    await ctx.reply(
+      '✅ Subscribed to threat feed!\n\nYou will receive real-time threat intelligence updates.'
+    );
   }
 });
 
@@ -312,19 +317,19 @@ function formatTopFindings(entities: any[], iocs: any[]): string {
   const findings: string[] = [];
 
   // Top IOCs
-  const criticalIOCs = iocs.filter(ioc => ioc.threat_level === 'CRITICAL');
+  const criticalIOCs = iocs.filter((ioc) => ioc.threat_level === 'CRITICAL');
   if (criticalIOCs.length > 0) {
     findings.push(`🚨 ${criticalIOCs.length} Critical IOCs`);
   }
 
   // Subdomains
-  const subdomains = entities.filter(e => e.type === 'DOMAIN');
+  const subdomains = entities.filter((e) => e.type === 'DOMAIN');
   if (subdomains.length > 0) {
     findings.push(`🌐 ${subdomains.length} Subdomains`);
   }
 
   // IPs
-  const ips = entities.filter(e => e.type === 'IP');
+  const ips = entities.filter((e) => e.type === 'IP');
   if (ips.length > 0) {
     findings.push(`🖥️ ${ips.length} IP Addresses`);
   }
@@ -335,7 +340,7 @@ function formatTopFindings(entities: any[], iocs: any[]): string {
 async function subscribeToScanUpdates(ctx: Context, scanId: string) {
   // Subscribe to Redis pub/sub for scan updates
   const subscriber = redis.duplicate();
-  
+
   subscriber.subscribe('scan:updates', (err) => {
     if (err) {
       logger.error('Failed to subscribe to scan updates', err);
@@ -345,7 +350,7 @@ async function subscribeToScanUpdates(ctx: Context, scanId: string) {
   subscriber.on('message', async (channel, message) => {
     try {
       const data = JSON.parse(message);
-      
+
       if (data.scanId === scanId) {
         await ctx.reply(`📊 Scan Update
 
@@ -372,7 +377,8 @@ bot.catch((err: any, ctx: Context) => {
 });
 
 // Start bot
-bot.launch()
+bot
+  .launch()
   .then(() => {
     logger.info('Telegram bot started successfully');
   })

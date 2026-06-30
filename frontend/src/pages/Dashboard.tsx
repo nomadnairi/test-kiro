@@ -96,8 +96,8 @@ export default function Dashboard() {
                     scan.status === 'COMPLETED'
                       ? 'bg-cyber-accent/20 text-cyber-accent'
                       : scan.status === 'RUNNING'
-                      ? 'bg-cyber-warning/20 text-cyber-warning'
-                      : 'bg-gray-500/20 text-gray-400'
+                        ? 'bg-cyber-warning/20 text-cyber-warning'
+                        : 'bg-gray-500/20 text-gray-400'
                   }`}
                 >
                   {scan.status}

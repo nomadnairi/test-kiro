@@ -22,7 +22,7 @@ export abstract class BaseIntegration {
 
   constructor(config: IntegrationConfig) {
     this.config = config;
-    this.logger = createLogger({ service: `integration-${this.name}` });
+    this.logger = createLogger({ service: `integration-${this.constructor.name}` });
   }
 
   protected async handleError(error: any): Promise<IntegrationResult> {

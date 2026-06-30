@@ -34,7 +34,7 @@ export class GraphIntelligence {
 
   async linkEntities(links: EntityLink[]): Promise<void> {
     const session = this.driver.session();
-    
+
     try {
       for (const link of links) {
         await session.run(
@@ -60,7 +60,7 @@ export class GraphIntelligence {
 
   async findInfrastructureClusters(): Promise<InfrastructureCluster[]> {
     const session = this.driver.session();
-    
+
     try {
       // Find clusters of related infrastructure
       const result = await session.run(`
@@ -92,15 +92,18 @@ export class GraphIntelligence {
 
   async findAttackChains(startNodeId: string): Promise<AttackChain[]> {
     const session = this.driver.session();
-    
+
     try {
       // Find potential attack chains
-      const result = await session.run(`
+      const result = await session.run(
+        `
         MATCH path = (start {id: $startNodeId})-[*1..5]->(end)
         WHERE end:VULNERABILITY OR end:EXPOSED_SERVICE
         RETURN path
         LIMIT 10
-      `, { startNodeId });
+      `,
+        { startNodeId }
+      );
 
       const chains: AttackChain[] = result.records.map((record, index) => {
         const path = record.get('path');
@@ -124,10 +127,10 @@ export class GraphIntelligence {
 
   async calculateCentrality(nodeType?: string): Promise<Record<string, number>> {
     const session = this.driver.session();
-    
+
     try {
       const typeFilter = nodeType ? `WHERE n:${nodeType}` : '';
-      
+
       const result = await session.run(`
         MATCH (n)
         ${typeFilter}
@@ -138,7 +141,7 @@ export class GraphIntelligence {
       `);
 
       const centrality: Record<string, number> = {};
-      result.records.forEach(record => {
+      result.records.forEach((record) => {
         centrality[record.get('nodeId')] = record.get('degree');
       });
 
@@ -151,16 +154,19 @@ export class GraphIntelligence {
 
   async findRelatedBreaches(entityId: string): Promise<any[]> {
     const session = this.driver.session();
-    
+
     try {
-      const result = await session.run(`
+      const result = await session.run(
+        `
         MATCH (e {id: $entityId})-[:EXPOSED_IN|FOUND_IN*1..2]-(b:BREACH)
         RETURN DISTINCT b
         ORDER BY b.date DESC
         LIMIT 20
-      `, { entityId });
+      `,
+        { entityId }
+      );
 
-      const breaches = result.records.map(record => {
+      const breaches = result.records.map((record) => {
         const breach = record.get('b').properties;
         return {
           id: breach.id,
@@ -180,16 +186,19 @@ export class GraphIntelligence {
 
   async correlateIOCs(iocId: string): Promise<any[]> {
     const session = this.driver.session();
-    
+
     try {
-      const result = await session.run(`
+      const result = await session.run(
+        `
         MATCH (ioc:IOC {id: $iocId})-[r*1..3]-(related)
         WHERE related:IOC OR related:THREAT_ACTOR OR related:CAMPAIGN
         RETURN DISTINCT related, type(r[0]) as relationshipType
         LIMIT 50
-      `, { iocId });
+      `,
+        { iocId }
+      );
 
-      const related = result.records.map(record => ({
+      const related = result.records.map((record) => ({
         entity: record.get('related').properties,
         relationship: record.get('relationshipType'),
       }));
@@ -203,17 +212,20 @@ export class GraphIntelligence {
 
   async buildTimeline(entityId: string): Promise<any[]> {
     const session = this.driver.session();
-    
+
     try {
-      const result = await session.run(`
+      const result = await session.run(
+        `
         MATCH (e {id: $entityId})-[r]-(related)
         WHERE r.timestamp IS NOT NULL
         RETURN related, r, r.timestamp as timestamp
         ORDER BY timestamp DESC
         LIMIT 100
-      `, { entityId });
+      `,
+        { entityId }
+      );
 
-      const timeline = result.records.map(record => ({
+      const timeline = result.records.map((record) => ({
         timestamp: record.get('timestamp'),
         entity: record.get('related').properties,
         relationship: record.get('r').type,
@@ -228,7 +240,7 @@ export class GraphIntelligence {
 
   async findActorClusters(): Promise<any[]> {
     const session = this.driver.session();
-    
+
     try {
       const result = await session.run(`
         MATCH (actor:THREAT_ACTOR)-[:USES|TARGETS*1..2]-(entity)
@@ -239,7 +251,7 @@ export class GraphIntelligence {
         LIMIT 20
       `);
 
-      const clusters = result.records.map(record => ({
+      const clusters = result.records.map((record) => ({
         actor: record.get('actor').properties,
         relatedEntities: record.get('relatedEntities').map((e: any) => e.properties),
       }));
@@ -253,17 +265,20 @@ export class GraphIntelligence {
 
   async scoreRelationship(sourceId: string, targetId: string): Promise<number> {
     const session = this.driver.session();
-    
+
     try {
       // Calculate relationship confidence based on multiple factors
-      const result = await session.run(`
+      const result = await session.run(
+        `
         MATCH (a {id: $sourceId})-[r]-(b {id: $targetId})
         WITH r, 
              CASE WHEN r.confidence IS NOT NULL THEN r.confidence ELSE 0.5 END as baseConfidence,
              size((a)--()) as aConnections,
              size((b)--()) as bConnections
         RETURN baseConfidence * (1 + log(aConnections + bConnections) / 10) as score
-      `, { sourceId, targetId });
+      `,
+        { sourceId, targetId }
+      );
 
       if (result.records.length > 0) {
         return result.records[0].get('score');
@@ -277,12 +292,12 @@ export class GraphIntelligence {
 
   private calculateChainSeverity(path: any): string {
     // Analyze path to determine severity
-    const hasVulnerability = path.segments.some((seg: any) => 
+    const hasVulnerability = path.segments.some((seg: any) =>
       seg.end.labels.includes('VULNERABILITY')
     );
-    
-    const hasCriticalNode = path.segments.some((seg: any) => 
-      seg.end.properties.severity === 'critical'
+
+    const hasCriticalNode = path.segments.some(
+      (seg: any) => seg.end.properties.severity === 'critical'
     );
 
     if (hasCriticalNode) return 'CRITICAL';
@@ -293,9 +308,10 @@ export class GraphIntelligence {
 
   async createGraphProjection(name: string): Promise<void> {
     const session = this.driver.session();
-    
+
     try {
-      await session.run(`
+      await session.run(
+        `
         CALL gds.graph.project(
           $name,
           ['IP', 'DOMAIN', 'ASN', 'CERTIFICATE'],
@@ -305,7 +321,9 @@ export class GraphIntelligence {
             SHARES_CERT: { orientation: 'UNDIRECTED' }
           }
         )
-      `, { name });
+      `,
+        { name }
+      );
 
       logger.info('Graph projection created', { name });
     } catch (error) {

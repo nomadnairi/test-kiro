@@ -73,7 +73,7 @@ export class VirusTotalIntegration extends BaseIntegration {
       const analysisId = submitResponse.data.data.id;
 
       // Wait a bit for analysis
-      await new Promise(resolve => setTimeout(resolve, 5000));
+      await new Promise((resolve) => setTimeout(resolve, 5000));
 
       // Get analysis results
       const analysisResponse = await axios.get(`${this.baseUrl}/analyses/${analysisId}`, {

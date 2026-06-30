@@ -37,20 +37,24 @@ export async function userRoutes(fastify: FastifyInstance) {
   });
 
   // List users (admin only)
-  fastify.get('/', {
-    preHandler: requireRole(['admin']),
-  }, async (request, reply) => {
-    try {
-      const result = await pool.query(
-        'SELECT id, email, username, role, created_at, last_login FROM users ORDER BY created_at DESC'
-      );
+  fastify.get(
+    '/',
+    {
+      preHandler: requireRole(['admin']),
+    },
+    async (request, reply) => {
+      try {
+        const result = await pool.query(
+          'SELECT id, email, username, role, created_at, last_login FROM users ORDER BY created_at DESC'
+        );
 
-      return { users: result.rows };
-    } catch (error: any) {
-      logger.error('List users failed', error);
-      return reply.code(500).send({ error: 'Internal server error' });
+        return { users: result.rows };
+      } catch (error: any) {
+        logger.error('List users failed', error);
+        return reply.code(500).send({ error: 'Internal server error' });
+      }
     }
-  });
+  );
 
   // Get user stats
   fastify.get('/me/stats', async (request, reply) => {

@@ -41,10 +41,10 @@ export class MaigretTool extends BaseTool {
   protected parseOutput(output: string): any {
     try {
       const results = JSON.parse(output);
-      
+
       const profiles: any[] = [];
-      
-      Object.keys(results).forEach(site => {
+
+      Object.keys(results).forEach((site) => {
         const data = results[site];
         if (data.status && data.status.status === 'Claimed') {
           profiles.push({
@@ -60,7 +60,7 @@ export class MaigretTool extends BaseTool {
         username: target,
         profiles,
         count: profiles.length,
-        sites: profiles.map(p => p.site),
+        sites: profiles.map((p) => p.site),
       };
     } catch (e) {
       return {

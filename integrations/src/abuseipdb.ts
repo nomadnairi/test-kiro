@@ -14,8 +14,8 @@ export class AbuseIPDBIntegration extends BaseIntegration {
           verbose: true,
         },
         headers: {
-          'Key': this.config.apiKey,
-          'Accept': 'application/json',
+          Key: this.config.apiKey,
+          Accept: 'application/json',
         },
         timeout: this.config.timeout || 30000,
       });
@@ -55,8 +55,8 @@ export class AbuseIPDBIntegration extends BaseIntegration {
         },
         {
           headers: {
-            'Key': this.config.apiKey,
-            'Accept': 'application/json',
+            Key: this.config.apiKey,
+            Accept: 'application/json',
           },
           timeout: this.config.timeout || 30000,
         }

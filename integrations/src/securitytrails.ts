@@ -8,7 +8,7 @@ export class SecurityTrailsIntegration extends BaseIntegration {
   async getDomainDetails(domain: string): Promise<IntegrationResult> {
     try {
       const response = await axios.get(`${this.baseUrl}/domain/${domain}`, {
-        headers: { 'APIKEY': this.config.apiKey },
+        headers: { APIKEY: this.config.apiKey },
         timeout: this.config.timeout || 30000,
       });
 
@@ -26,7 +26,7 @@ export class SecurityTrailsIntegration extends BaseIntegration {
   async getSubdomains(domain: string): Promise<IntegrationResult> {
     try {
       const response = await axios.get(`${this.baseUrl}/domain/${domain}/subdomains`, {
-        headers: { 'APIKEY': this.config.apiKey },
+        headers: { APIKEY: this.config.apiKey },
         timeout: this.config.timeout || 30000,
       });
 
@@ -43,7 +43,7 @@ export class SecurityTrailsIntegration extends BaseIntegration {
   async getDNSHistory(domain: string, type: string = 'a'): Promise<IntegrationResult> {
     try {
       const response = await axios.get(`${this.baseUrl}/history/${domain}/dns/${type}`, {
-        headers: { 'APIKEY': this.config.apiKey },
+        headers: { APIKEY: this.config.apiKey },
         timeout: this.config.timeout || 30000,
       });
 
@@ -60,7 +60,7 @@ export class SecurityTrailsIntegration extends BaseIntegration {
   async getWhoisHistory(domain: string): Promise<IntegrationResult> {
     try {
       const response = await axios.get(`${this.baseUrl}/history/${domain}/whois`, {
-        headers: { 'APIKEY': this.config.apiKey },
+        headers: { APIKEY: this.config.apiKey },
         timeout: this.config.timeout || 30000,
       });
 

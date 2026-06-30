@@ -36,12 +36,12 @@ export class AmassTool extends BaseTool {
       asns: [] as string[],
     };
 
-    const lines = output.split('\n').filter(line => line.trim());
+    const lines = output.split('\n').filter((line) => line.trim());
 
     for (const line of lines) {
       try {
         const data = JSON.parse(line);
-        
+
         if (data.name) {
           results.subdomains.push(data.name);
         }

@@ -67,15 +67,12 @@ export class HaveIBeenPwnedIntegration extends BaseIntegration {
       const prefix = hash.substring(0, 5);
       const suffix = hash.substring(5);
 
-      const response = await axios.get(
-        `https://api.pwnedpasswords.com/range/${prefix}`,
-        {
-          headers: {
-            'user-agent': 'CyberIntel-Platform',
-          },
-          timeout: this.config.timeout || 30000,
-        }
-      );
+      const response = await axios.get(`https://api.pwnedpasswords.com/range/${prefix}`, {
+        headers: {
+          'user-agent': 'CyberIntel-Platform',
+        },
+        timeout: this.config.timeout || 30000,
+      });
 
       const hashes = response.data.split('\n');
       const found = hashes.find((line: string) => line.startsWith(suffix));

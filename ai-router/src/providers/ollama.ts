@@ -60,8 +60,11 @@ export class OllamaProvider extends AIProvider {
       );
 
       for await (const chunk of response.data) {
-        const lines = chunk.toString().split('\n').filter((line: string) => line.trim());
-        
+        const lines = chunk
+          .toString()
+          .split('\n')
+          .filter((line: string) => line.trim());
+
         for (const line of lines) {
           try {
             const data = JSON.parse(line);

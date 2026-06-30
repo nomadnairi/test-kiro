@@ -29,7 +29,7 @@ export class SubfinderTool extends BaseTool {
 
   protected parseOutput(output: string): any {
     const subdomains: string[] = [];
-    const lines = output.split('\n').filter(line => line.trim());
+    const lines = output.split('\n').filter((line) => line.trim());
 
     for (const line of lines) {
       try {

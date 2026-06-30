@@ -56,7 +56,7 @@ export class ReportGenerator {
         doc.addPage();
         doc.fontSize(18).text('Executive Summary', { underline: true });
         doc.moveDown();
-        
+
         const summary = await this.generateExecutiveSummary(data);
         doc.fontSize(11).text(summary);
         doc.moveDown();
@@ -78,7 +78,7 @@ export class ReportGenerator {
         doc.fontSize(14).text('Indicators of Compromise', { underline: true });
         doc.moveDown(0.5);
         doc.fontSize(11).text(`Total: ${data.iocs?.length || 0}`);
-        
+
         const criticalIOCs = data.iocs?.filter((ioc: any) => ioc.threat_level === 'CRITICAL') || [];
         if (criticalIOCs.length > 0) {
           doc.moveDown();
@@ -100,7 +100,7 @@ export class ReportGenerator {
       doc.addPage();
       doc.fontSize(18).text('Attack Surface', { underline: true });
       doc.moveDown();
-      
+
       const attackSurface = this.calculateAttackSurface(data);
       doc.fontSize(11).text(`Subdomains: ${attackSurface.subdomains}`);
       doc.text(`IP Addresses: ${attackSurface.ips}`);
@@ -112,7 +112,7 @@ export class ReportGenerator {
       doc.addPage();
       doc.fontSize(18).text('Risk Assessment', { underline: true });
       doc.moveDown();
-      
+
       const riskScore = this.calculateRiskScore(data);
       doc.fontSize(14).text(`Overall Risk Score: ${riskScore}/100`);
       doc.moveDown();
@@ -125,7 +125,7 @@ export class ReportGenerator {
       doc.addPage();
       doc.fontSize(18).text('Recommendations', { underline: true });
       doc.moveDown();
-      
+
       const recommendations = await this.generateRecommendations(data);
       doc.fontSize(11).text(recommendations);
 
@@ -292,7 +292,7 @@ Provide 5-7 prioritized, actionable recommendations.`,
 
   private calculateAttackSurface(data: any): any {
     const entities = data.entities || [];
-    
+
     return {
       subdomains: entities.filter((e: any) => e.type === 'DOMAIN').length,
       ips: entities.filter((e: any) => e.type === 'IP').length,

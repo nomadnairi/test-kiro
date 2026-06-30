@@ -27,7 +27,7 @@ export class DeepSeekProvider extends AIProvider {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
           },
         }
@@ -59,7 +59,7 @@ export class DeepSeekProvider extends AIProvider {
   async checkAvailability(): Promise<boolean> {
     try {
       await axios.get(`${this.baseUrl}/models`, {
-        headers: { 'Authorization': `Bearer ${this.apiKey}` },
+        headers: { Authorization: `Bearer ${this.apiKey}` },
       });
       this.available = true;
       return true;

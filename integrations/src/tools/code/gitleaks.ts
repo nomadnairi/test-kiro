@@ -45,9 +45,9 @@ export class GitleaksTool extends BaseTool {
   protected parseOutput(output: string): any {
     try {
       const results = JSON.parse(output);
-      
+
       const secrets: any[] = [];
-      
+
       if (Array.isArray(results)) {
         results.forEach((finding: any) => {
           secrets.push({
@@ -67,8 +67,8 @@ export class GitleaksTool extends BaseTool {
       return {
         secrets,
         count: secrets.length,
-        files: [...new Set(secrets.map(s => s.file))],
-        ruleIds: [...new Set(secrets.map(s => s.ruleId))],
+        files: [...new Set(secrets.map((s) => s.file))],
+        ruleIds: [...new Set(secrets.map((s) => s.ruleId))],
       };
     } catch (e) {
       return {

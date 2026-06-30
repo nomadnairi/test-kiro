@@ -36,7 +36,7 @@ export class TaskScheduler {
   private async processTasks(): Promise<void> {
     try {
       const stats = await this.queue.getStats();
-      
+
       if (stats.queueSize > 0) {
         logger.debug('Processing queued tasks', { queueSize: stats.queueSize });
       }

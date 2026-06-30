@@ -33,7 +33,7 @@ export class NucleiTool extends BaseTool {
 
   protected parseOutput(output: string): any {
     const vulnerabilities: any[] = [];
-    const lines = output.split('\n').filter(line => line.trim());
+    const lines = output.split('\n').filter((line) => line.trim());
 
     for (const line of lines) {
       try {
@@ -55,10 +55,10 @@ export class NucleiTool extends BaseTool {
     return {
       vulnerabilities,
       total: vulnerabilities.length,
-      critical: vulnerabilities.filter(v => v.severity === 'critical').length,
-      high: vulnerabilities.filter(v => v.severity === 'high').length,
-      medium: vulnerabilities.filter(v => v.severity === 'medium').length,
-      low: vulnerabilities.filter(v => v.severity === 'low').length,
+      critical: vulnerabilities.filter((v) => v.severity === 'critical').length,
+      high: vulnerabilities.filter((v) => v.severity === 'high').length,
+      medium: vulnerabilities.filter((v) => v.severity === 'medium').length,
+      low: vulnerabilities.filter((v) => v.severity === 'low').length,
     };
   }
 }

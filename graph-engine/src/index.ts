@@ -13,10 +13,7 @@ async function start() {
   // Neo4j connection
   const driver = neo4j.driver(
     process.env.NEO4J_URI || 'bolt://localhost:7687',
-    neo4j.auth.basic(
-      process.env.NEO4J_USER || 'neo4j',
-      process.env.NEO4J_PASSWORD || 'cyberintel'
-    )
+    neo4j.auth.basic(process.env.NEO4J_USER || 'neo4j', process.env.NEO4J_PASSWORD || 'cyberintel')
   );
 
   const graphService = new GraphService(driver);

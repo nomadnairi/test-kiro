@@ -45,7 +45,7 @@ export class KatanaTool extends BaseTool {
   protected parseOutput(output: string): any {
     const urls: any[] = [];
 
-    output.split('\n').forEach(line => {
+    output.split('\n').forEach((line) => {
       if (line.trim()) {
         try {
           urls.push(JSON.parse(line));
@@ -58,7 +58,7 @@ export class KatanaTool extends BaseTool {
     return {
       urls,
       count: urls.length,
-      endpoints: urls.map(u => u.url),
+      endpoints: urls.map((u) => u.url),
     };
   }
 }

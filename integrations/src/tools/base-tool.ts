@@ -29,24 +29,24 @@ export abstract class BaseTool {
 
   async execute(target: string, options: Record<string, any> = {}): Promise<ToolResult> {
     const startTime = Date.now();
-    
+
     try {
       this.logger.info('Executing tool', { tool: this.config.name, target });
 
       const result = await this.runCommand(target, options);
       const executionTime = Date.now() - startTime;
 
-      this.logger.info('Tool execution complete', { 
-        tool: this.config.name, 
+      this.logger.info('Tool execution complete', {
+        tool: this.config.name,
         executionTime,
-        success: result.success 
+        success: result.success,
       });
 
       return { ...result, executionTime };
     } catch (error: any) {
       const executionTime = Date.now() - startTime;
       this.logger.error('Tool execution failed', error);
-      
+
       return {
         success: false,
         error: error.message,
@@ -86,7 +86,7 @@ export abstract class BaseTool {
 
       process.on('close', (code) => {
         clearTimeout(timer);
-        
+
         if (code === 0) {
           const parsed = this.parseOutput(stdout);
           resolve({

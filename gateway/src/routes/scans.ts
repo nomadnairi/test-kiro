@@ -52,10 +52,11 @@ export async function scanRoutes(fastify: FastifyInstance) {
       } catch (orchError) {
         logger.error('Failed to send to orchestrator', orchError);
         // Update scan status to failed
-        await pool.query(
-          'UPDATE scans SET status = $1, error = $2 WHERE id = $3',
-          [ScanStatus.FAILED, 'Failed to start scan', scanId]
-        );
+        await pool.query('UPDATE scans SET status = $1, error = $2 WHERE id = $3', [
+          ScanStatus.FAILED,
+          'Failed to start scan',
+          scanId,
+        ]);
         throw new Error('Failed to start scan');
       }
 
@@ -137,10 +138,7 @@ export async function scanRoutes(fastify: FastifyInstance) {
   fastify.post('/:scanId/cancel', async (request, reply) => {
     const { scanId } = request.params as { scanId: string };
 
-    await pool.query(
-      'UPDATE scans SET status = $1 WHERE id = $2',
-      [ScanStatus.CANCELLED, scanId]
-    );
+    await pool.query('UPDATE scans SET status = $1 WHERE id = $2', [ScanStatus.CANCELLED, scanId]);
 
     // Notify orchestrator with timeout
     try {

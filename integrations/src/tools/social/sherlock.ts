@@ -25,10 +25,10 @@ export class SherlockTool extends BaseTool {
 
   protected parseOutput(output: string): any {
     const profiles: any[] = [];
-    
+
     try {
       const data = JSON.parse(output);
-      
+
       for (const [platform, info] of Object.entries(data)) {
         if (typeof info === 'object' && info !== null) {
           const profileInfo = info as any;
@@ -61,8 +61,8 @@ export class SherlockTool extends BaseTool {
 
     return {
       username: profiles[0]?.platform ? output.split('\n')[0] : 'unknown',
-      profiles: profiles.filter(p => p.found),
-      total: profiles.filter(p => p.found).length,
+      profiles: profiles.filter((p) => p.found),
+      total: profiles.filter((p) => p.found).length,
     };
   }
 }

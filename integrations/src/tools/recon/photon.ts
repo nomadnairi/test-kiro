@@ -66,9 +66,9 @@ export class PhotonTool extends BaseTool {
     const files: string[] = [];
     const intel: string[] = [];
 
-    output.split('\n').forEach(line => {
+    output.split('\n').forEach((line) => {
       const trimmed = line.trim();
-      
+
       if (trimmed.includes('http://') || trimmed.includes('https://')) {
         urls.push(trimmed);
       } else if (trimmed.includes('@') && !trimmed.includes('http')) {

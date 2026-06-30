@@ -21,7 +21,7 @@ async function start() {
   // Health check
   fastify.get('/health', async () => {
     const redisHealthy = redis.status === 'ready';
-    
+
     return {
       status: redisHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
@@ -91,7 +91,7 @@ async function start() {
   // Health check
   fastify.get('/health', async () => {
     const redisHealthy = redis.status === 'ready';
-    
+
     return {
       status: redisHealthy ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),

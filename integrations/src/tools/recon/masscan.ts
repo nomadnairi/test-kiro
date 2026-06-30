@@ -48,8 +48,8 @@ export class MasscanTool extends BaseTool {
     try {
       // Masscan outputs multiple JSON objects, one per line
       const ports: any[] = [];
-      
-      output.split('\n').forEach(line => {
+
+      output.split('\n').forEach((line) => {
         if (line.trim() && line.includes('"ip"')) {
           try {
             const data = JSON.parse(line);
@@ -74,8 +74,8 @@ export class MasscanTool extends BaseTool {
       return {
         ports,
         count: ports.length,
-        ips: [...new Set(ports.map(p => p.ip))],
-        openPorts: [...new Set(ports.map(p => p.port))],
+        ips: [...new Set(ports.map((p) => p.ip))],
+        openPorts: [...new Set(ports.map((p) => p.port))],
       };
     } catch (e) {
       return {

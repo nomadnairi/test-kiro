@@ -8,7 +8,7 @@ export class GreyNoiseIntegration extends BaseIntegration {
   async lookupIP(ip: string): Promise<IntegrationResult> {
     try {
       const response = await axios.get(`${this.baseUrl}/community/${ip}`, {
-        headers: { 'key': this.config.apiKey },
+        headers: { key: this.config.apiKey },
         timeout: this.config.timeout || 30000,
       });
 
@@ -30,7 +30,7 @@ export class GreyNoiseIntegration extends BaseIntegration {
   async contextIP(ip: string): Promise<IntegrationResult> {
     try {
       const response = await axios.get(`${this.baseUrl}/noise/context/${ip}`, {
-        headers: { 'key': this.config.apiKey },
+        headers: { key: this.config.apiKey },
         timeout: this.config.timeout || 30000,
       });
 

@@ -33,10 +33,7 @@ export async function iocRoutes(fastify: FastifyInstance) {
     try {
       const { iocId } = IOCIdSchema.parse(request.params);
 
-      const result = await pool.query(
-        'SELECT * FROM iocs WHERE id = $1',
-        [iocId]
-      );
+      const result = await pool.query('SELECT * FROM iocs WHERE id = $1', [iocId]);
 
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'IOC not found' });
@@ -45,9 +42,9 @@ export async function iocRoutes(fastify: FastifyInstance) {
       return result.rows[0];
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return reply.code(400).send({ 
-          error: 'Validation failed', 
-          details: error.errors 
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: error.errors,
         });
       }
       logger.error('Get IOC failed', error);
@@ -93,19 +90,19 @@ export async function iocRoutes(fastify: FastifyInstance) {
 
       const result = await pool.query(query, params);
 
-      return { 
+      return {
         iocs: result.rows,
         pagination: {
           limit,
           offset,
           total: result.rowCount || 0,
-        }
+        },
       };
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return reply.code(400).send({ 
-          error: 'Validation failed', 
-          details: error.errors 
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: error.errors,
         });
       }
       logger.error('Search IOCs failed', error);
@@ -129,9 +126,9 @@ export async function iocRoutes(fastify: FastifyInstance) {
       return { iocs: result.rows };
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return reply.code(400).send({ 
-          error: 'Validation failed', 
-          details: error.errors 
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: error.errors,
         });
       }
       logger.error('Get recent IOCs failed', error);

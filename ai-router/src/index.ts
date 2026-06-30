@@ -114,7 +114,7 @@ async function start() {
   fastify.get('/health', async () => {
     const redisHealthy = redis.status === 'ready';
     const providers = registry.getAvailableProviders();
-    
+
     return {
       status: redisHealthy && providers.length > 0 ? 'healthy' : 'degraded',
       timestamp: new Date().toISOString(),
@@ -124,7 +124,7 @@ async function start() {
       dependencies: {
         redis: redisHealthy ? 'up' : 'down',
       },
-      providers: providers.map(p => ({
+      providers: providers.map((p) => ({
         name: p.name,
         healthy: p.healthy,
       })),

@@ -27,10 +27,7 @@ export async function entityRoutes(fastify: FastifyInstance) {
     try {
       const { entityId } = EntityIdSchema.parse(request.params);
 
-      const result = await pool.query(
-        'SELECT * FROM entities WHERE id = $1',
-        [entityId]
-      );
+      const result = await pool.query('SELECT * FROM entities WHERE id = $1', [entityId]);
 
       if (result.rows.length === 0) {
         return reply.code(404).send({ error: 'Entity not found' });
@@ -39,9 +36,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
       return result.rows[0];
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return reply.code(400).send({ 
-          error: 'Validation failed', 
-          details: error.errors 
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: error.errors,
         });
       }
       logger.error('Get entity failed', error);
@@ -75,19 +72,19 @@ export async function entityRoutes(fastify: FastifyInstance) {
 
       const result = await pool.query(query, params);
 
-      return { 
+      return {
         entities: result.rows,
         pagination: {
           limit,
           offset,
           total: result.rowCount || 0,
-        }
+        },
       };
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return reply.code(400).send({ 
-          error: 'Validation failed', 
-          details: error.errors 
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: error.errors,
         });
       }
       logger.error('Search entities failed', error);
@@ -114,9 +111,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
       return { relationships: result.rows };
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return reply.code(400).send({ 
-          error: 'Validation failed', 
-          details: error.errors 
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: error.errors,
         });
       }
       logger.error('Get relationships failed', error);
@@ -139,9 +136,9 @@ export async function entityRoutes(fastify: FastifyInstance) {
       return { events: result.rows };
     } catch (error: any) {
       if (error instanceof z.ZodError) {
-        return reply.code(400).send({ 
-          error: 'Validation failed', 
-          details: error.errors 
+        return reply.code(400).send({
+          error: 'Validation failed',
+          details: error.errors,
         });
       }
       logger.error('Get timeline failed', error);

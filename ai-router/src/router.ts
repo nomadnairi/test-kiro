@@ -18,10 +18,10 @@ export class AIRouter {
 
   async chat(request: ChatRequest): Promise<ChatResponse> {
     const providerName = request.provider || this.defaultProvider;
-    
+
     try {
       const provider = this.registry.getProvider(providerName);
-      
+
       if (!provider) {
         throw new Error(`Provider ${providerName} not available`);
       }
@@ -65,7 +65,7 @@ export class AIRouter {
   ): Promise<ChatResponse> {
     const availableProviders = this.registry
       .listProviders()
-      .filter(p => !triedProviders.includes(p.name) && p.available);
+      .filter((p) => !triedProviders.includes(p.name) && p.available);
 
     if (availableProviders.length === 0) {
       throw new Error('No available AI providers');
@@ -93,7 +93,7 @@ export class AIRouter {
     response: ChatResponse
   ): Promise<void> {
     const key = `ai:usage:${provider}:${new Date().toISOString().split('T')[0]}`;
-    
+
     await this.redis.hincrby(key, 'requests', 1);
     await this.redis.hincrby(key, 'tokens', response.usage?.totalTokens || 0);
     await this.redis.expire(key, 86400 * 30); // 30 days

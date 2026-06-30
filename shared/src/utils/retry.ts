@@ -8,10 +8,7 @@ export interface RetryOptions {
   timeout?: number;
 }
 
-export async function retry<T>(
-  fn: () => Promise<T>,
-  options: RetryOptions = {}
-): Promise<T> {
+export async function retry<T>(fn: () => Promise<T>, options: RetryOptions = {}): Promise<T> {
   const {
     maxRetries = 3,
     initialDelay = 1000,

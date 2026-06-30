@@ -15,18 +15,12 @@ export default function AIChat() {
   const sendMessage = useMutation({
     mutationFn: async (content: string) => {
       const response = await axios.post(`${import.meta.env.VITE_API_URL}/api/ai/chat`, {
-        messages: [
-          ...messages,
-          { role: 'user', content },
-        ],
+        messages: [...messages, { role: 'user', content }],
       });
       return response.data;
     },
     onSuccess: (data) => {
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: data.content },
-      ]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: data.content }]);
     },
   });
 

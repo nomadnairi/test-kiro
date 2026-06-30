@@ -10,12 +10,17 @@ const PORT = parseInt(process.env.GRAPH_ENGINE_PORT || '8004');
 async function start() {
   const fastify = Fastify({ logger: false });
 
+  if (!process.env.NEO4J_PASSWORD) {
+    logger.error('NEO4J_PASSWORD environment variable is required');
+    process.exit(1);
+  }
+
   // Neo4j connection
   const driver = neo4j.driver(
     process.env.NEO4J_URI || 'bolt://localhost:7687',
     neo4j.auth.basic(
       process.env.NEO4J_USER || 'neo4j',
-      process.env.NEO4J_PASSWORD || 'cyberintel'
+      process.env.NEO4J_PASSWORD
     )
   );
 

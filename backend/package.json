@@ -7,16 +7,18 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "migrate": "node scripts/migrate.js",
-    "seed": "node scripts/seed.js"
+    "seed": "node scripts/seed.js",
+    "test": "tsx --test src/**/*.test.ts"
   },
   "dependencies": {
-    "@cyberintel/shared": "*",
     "@cyberintel/integrations": "*",
+    "@cyberintel/shared": "*",
+    "@elastic/elasticsearch": "^8.13.0",
     "fastify": "^4.26.2",
-    "pg": "^8.11.5",
-    "neo4j-driver": "^5.18.0",
     "ioredis": "^5.4.1",
-    "@elastic/elasticsearch": "^8.13.0"
+    "neo4j-driver": "^5.18.0",
+    "pdfkit": "0.19.1",
+    "pg": "^8.11.5"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",

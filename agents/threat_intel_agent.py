@@ -1,5 +1,9 @@
+import os
 from base_agent import BaseAgent
 from typing import Dict, Any, List
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ThreatIntelAgent(BaseAgent):
@@ -111,9 +115,48 @@ class ThreatIntelAgent(BaseAgent):
     
     async def check_hash_reputation(self, hash_value: str) -> Dict[str, Any]:
         """Check file hash reputation"""
-        # TODO: Implement hash reputation check
-        return {}
+        reputation = {
+            "hash": hash_value,
+            "sources": {},
+            "threat_level": "UNKNOWN",
+            "confidence": 0
+        }
+
+        # VirusTotal
+        vt_result = await self.query_virustotal_hash(hash_value)
+        if vt_result:
+            reputation["sources"]["virustotal"] = vt_result
+
+        reputation["threat_level"] = self.calculate_threat_level(reputation["sources"])
+        reputation["confidence"] = self.calculate_confidence(reputation["sources"])
+
+        return reputation
     
+    async def query_virustotal_hash(self, hash_value: str) -> Dict[str, Any]:
+        """Query VirusTotal for hash"""
+        api_key = self.integrations.get("virustotal", {}).get("api_key") or os.environ.get("VIRUSTOTAL_API_KEY")
+        if not api_key:
+            logger.warning("VirusTotal API key not found")
+            return {}
+
+        try:
+            response = await self.client.get(
+                f"https://www.virustotal.com/api/v3/files/{hash_value}",
+                headers={"x-apikey": api_key}
+            )
+            response.raise_for_status()
+            data = response.json()
+            attributes = data.get("data", {}).get("attributes", {})
+            return {
+                "last_analysis_stats": attributes.get("last_analysis_stats", {}),
+                "reputation": attributes.get("reputation", 0),
+                "tags": attributes.get("tags", []),
+                "meaningful_name": attributes.get("meaningful_name", "")
+            }
+        except Exception as e:
+            logger.error(f"Error querying VirusTotal for hash {hash_value}: {e}")
+            return {}
+
     async def query_virustotal_ip(self, ip: str) -> Dict[str, Any]:
         """Query VirusTotal for IP"""
         # TODO: Implement VirusTotal API call

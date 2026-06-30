@@ -29,7 +29,7 @@ describe('VirusTotalIntegration', () => {
       try {
         // Mock successful POST for submission
         mockedAxios.post.mockResolvedValue({
-          data: { data: { id: 'test-analysis-id' } }
+          data: { data: { id: 'test-analysis-id' } },
         });
 
         // Mock failing GET for analysis status

@@ -22,6 +22,7 @@ export abstract class BaseIntegration {
 
   constructor(config: IntegrationConfig) {
     this.config = config;
+    // @ts-ignore - name is initialized in derived classes
     this.logger = createLogger({ service: `integration-${this.name}` });
   }
 

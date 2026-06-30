@@ -162,13 +162,31 @@ Return ONLY valid JSON, no explanation."""
             
             self.log_action(f"Executing phase: {phase_name}", {"tools": phase_tools})
             
-            # TODO: Call tool orchestrator API
-            # For now, return mock results
-            for tool in phase_tools:
-                results[tool] = {
-                    "success": True,
-                    "data": {},
-                }
+            endpoint = "/execute-parallel" if parallel else "/execute-sequential"
+            try:
+                response = await self.client.post(
+                    f"{self.tool_orchestrator_url}{endpoint}",
+                    json={
+                        "tools": phase_tools,
+                        "target": target
+                    }
+                )
+                response.raise_for_status()
+                phase_results = response.json()
+
+                # Merge phase results
+                for tool_name, tool_data in phase_results.items():
+                    results[tool_name] = tool_data
+
+            except Exception as e:
+                self.log_action(f"Phase execution failed: {phase_name}", {"error": str(e)})
+                # Mark failed tools
+                for tool in phase_tools:
+                    results[tool] = {
+                        "success": False,
+                        "error": str(e),
+                        "data": {},
+                    }
         
         return results
     

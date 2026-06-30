@@ -111,8 +111,27 @@ class ThreatIntelAgent(BaseAgent):
     
     async def check_hash_reputation(self, hash_value: str) -> Dict[str, Any]:
         """Check file hash reputation"""
-        # TODO: Implement hash reputation check
-        return {}
+        reputation = {
+            "hash": hash_value,
+            "sources": {},
+            "threat_level": "UNKNOWN",
+            "confidence": 0
+        }
+
+        # VirusTotal
+        vt_result = await self.query_virustotal_hash(hash_value)
+        if vt_result:
+            reputation["sources"]["virustotal"] = vt_result
+
+        # AlienVault OTX
+        otx_result = await self.query_alienvault_hash(hash_value)
+        if otx_result:
+            reputation["sources"]["alienvault"] = otx_result
+
+        reputation["threat_level"] = self.calculate_threat_level(reputation["sources"])
+        reputation["confidence"] = self.calculate_confidence(reputation["sources"])
+
+        return reputation
     
     async def query_virustotal_ip(self, ip: str) -> Dict[str, Any]:
         """Query VirusTotal for IP"""
@@ -124,6 +143,11 @@ class ThreatIntelAgent(BaseAgent):
         # TODO: Implement VirusTotal API call
         return {}
     
+    async def query_virustotal_hash(self, hash_value: str) -> Dict[str, Any]:
+        """Query VirusTotal for hash"""
+        # TODO: Implement VirusTotal API call
+        return {}
+
     async def query_abuseipdb(self, ip: str) -> Dict[str, Any]:
         """Query AbuseIPDB"""
         # TODO: Implement AbuseIPDB API call
@@ -144,6 +168,11 @@ class ThreatIntelAgent(BaseAgent):
         # TODO: Implement AlienVault API call
         return {}
     
+    async def query_alienvault_hash(self, hash_value: str) -> Dict[str, Any]:
+        """Query AlienVault OTX for hash"""
+        # TODO: Implement AlienVault API call
+        return {}
+
     async def query_urlscan(self, domain: str) -> Dict[str, Any]:
         """Query URLScan"""
         # TODO: Implement URLScan API call

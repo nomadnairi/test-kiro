@@ -34,7 +34,7 @@ class Worker:
                 self.ai_router_url,
                 os.getenv('NEO4J_URI', 'bolt://localhost:7687'),
                 os.getenv('NEO4J_USER', 'neo4j'),
-                os.getenv('NEO4J_PASSWORD', 'cyberintel')
+                os.environ['NEO4J_PASSWORD']
             ),
             'REPORT': ReportAgent(self.ai_router_url),
         }

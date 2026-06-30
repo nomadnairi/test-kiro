@@ -1,6 +1,8 @@
 from base_agent import BaseAgent
 from typing import Dict, Any, List
 import httpx
+import asyncio
+import socket
 
 
 class ReconAgent(BaseAgent):
@@ -84,8 +86,20 @@ class ReconAgent(BaseAgent):
     
     async def get_dns_records(self, domain: str) -> List[Dict[str, Any]]:
         """Get DNS records for domain"""
-        # TODO: Implement DNS resolution
-        return []
+        entities = []
+        try:
+            loop = asyncio.get_running_loop()
+            _, _, ips = await loop.run_in_executor(None, socket.gethostbyname_ex, domain)
+            for ip in ips:
+                entities.append({
+                    "type": "IP",
+                    "value": ip,
+                    "source": "dns"
+                })
+        except Exception as e:
+            self.log_action("DNS resolution failed", {"domain": domain, "error": str(e)})
+
+        return entities
     
     async def enumerate_subdomains(self, domain: str) -> List[Dict[str, Any]]:
         """Enumerate subdomains"""

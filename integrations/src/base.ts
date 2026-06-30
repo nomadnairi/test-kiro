@@ -22,7 +22,9 @@ export abstract class BaseIntegration {
 
   constructor(config: IntegrationConfig) {
     this.config = config;
-    this.logger = createLogger({ service: `integration-${this.name}` });
+    // Abstract property 'name' cannot be safely accessed in the constructor.
+    // Instead we resolve it later or create it with a generic label.
+    this.logger = createLogger({ service: `integration-service` });
   }
 
   protected async handleError(error: any): Promise<IntegrationResult> {

@@ -19,6 +19,7 @@ class IngestionWorker:
         self.db_url = db_url
         self.client = httpx.AsyncClient(timeout=30.0)
         self.running = False
+        self.rss_cache = {}
     
     async def start(self):
         """Start ingestion worker"""
@@ -47,7 +48,24 @@ class IngestionWorker:
                 for feed_url in feeds:
                     logger.info(f"Ingesting RSS feed: {feed_url}")
                     
-                    feed = feedparser.parse(feed_url)
+                    # Fetch from cache
+                    cache_info = self.rss_cache.get(feed_url, {})
+                    etag = cache_info.get('etag')
+                    modified = cache_info.get('modified')
+
+                    feed = feedparser.parse(feed_url, etag=etag, modified=modified)
+
+                    # Update cache
+                    new_cache_info = {}
+                    if hasattr(feed, 'etag'):
+                        new_cache_info['etag'] = feed.etag
+                    if hasattr(feed, 'modified'):
+                        new_cache_info['modified'] = feed.modified
+                    self.rss_cache[feed_url] = new_cache_info
+
+                    if feed.get('status') == 304:
+                        logger.info(f"RSS feed {feed_url} unmodified, skipping.")
+                        continue
                     
                     for entry in feed.entries[:10]:  # Process last 10 entries
                         await self.process_rss_entry(entry, feed_url)

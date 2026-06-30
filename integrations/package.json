@@ -4,17 +4,20 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "dev": "tsc --watch"
+    "dev": "tsc --watch",
+    "test": "tsx --test tests/**/*.test.ts"
   },
   "dependencies": {
     "@cyberintel/shared": "*",
     "axios": "^1.6.8",
-    "dns": "^0.2.2",
-    "whois": "^2.13.5"
+    "whois": "^2.13.5",
+    "dns": "^0.2.2"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
     "@types/whois": "^2.13.3",
+    "@types/sinon": "21.0.1",
+    "sinon": "22.0.0",
     "typescript": "^5.4.5"
   }
 }

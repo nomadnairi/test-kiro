@@ -30,7 +30,7 @@ class AttackSurfaceAgent(BaseAgent):
         results["entry_points"] = await self.find_entry_points(scan_id)
         
         # Correlate vulnerabilities
-        results["vulnerabilities"] = await self.correlate_vulnerabilities(scan_id)
+        results["vulnerabilities"] = await self.correlate_vulnerabilities(scan_id, results.get("exposed_assets", []))
         
         # Calculate risk score
         results["risk_score"] = await self.calculate_risk_score(results)
@@ -56,10 +56,73 @@ class AttackSurfaceAgent(BaseAgent):
         # TODO: Identify entry points from scan data
         return []
     
-    async def correlate_vulnerabilities(self, scan_id: str) -> List[Dict[str, Any]]:
+    async def correlate_vulnerabilities(self, scan_id: str, exposed_assets: List[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """Correlate known vulnerabilities"""
-        # TODO: Match assets with known vulnerabilities
-        return []
+        vulnerabilities = []
+        if not exposed_assets:
+            return vulnerabilities
+
+        try:
+            for asset in exposed_assets:
+                # Build keyword search string from asset data defensively
+                keywords = []
+                for field in ["technology", "vendor", "name", "version", "product", "service"]:
+                    val = asset.get(field)
+                    if val:
+                        keywords.append(str(val))
+
+                if not keywords:
+                    # Try using type or value if present
+                    val = asset.get("value") or asset.get("type")
+                    if val:
+                        keywords.append(str(val))
+
+                if not keywords:
+                    continue
+
+                keyword_str = " ".join(keywords)
+                self.log_action("Querying NVD for asset", {"keywords": keyword_str})
+
+                response = await self.client.get(
+                    "https://services.nvd.nist.gov/rest/json/cves/2.0",
+                    params={"keywordSearch": keyword_str, "resultsPerPage": 5}
+                )
+
+                if response.status_code == 200:
+                    data = response.json()
+
+                    for cve_item in data.get('vulnerabilities', []):
+                        cve = cve_item.get('cve', {})
+                        cve_id = cve.get('id')
+                        if not cve_id:
+                            continue
+
+                        # Extract severity
+                        severity = "UNKNOWN"
+                        metrics = cve.get('metrics', {})
+                        if 'cvssMetricV31' in metrics:
+                            severity = metrics['cvssMetricV31'][0].get('cvssData', {}).get('baseSeverity', 'UNKNOWN')
+                        elif 'cvssMetricV30' in metrics:
+                            severity = metrics['cvssMetricV30'][0].get('cvssData', {}).get('baseSeverity', 'UNKNOWN')
+                        elif 'cvssMetricV2' in metrics:
+                            severity = metrics['cvssMetricV2'][0].get('baseSeverity', 'UNKNOWN')
+
+                        desc = ""
+                        for description in cve.get('descriptions', []):
+                            if description.get('lang') == 'en':
+                                desc = description.get('value', '')
+                                break
+
+                        vulnerabilities.append({
+                            "cve_id": cve_id,
+                            "severity": severity,
+                            "description": desc,
+                            "asset": asset
+                        })
+        except Exception as e:
+            self.log_action("Error correlating vulnerabilities", {"error": str(e)})
+
+        return vulnerabilities
     
     async def calculate_risk_score(self, results: Dict[str, Any]) -> int:
         """Calculate overall risk score (0-100)"""

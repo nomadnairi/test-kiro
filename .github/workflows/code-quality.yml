@@ -23,7 +23,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci --workspaces --if-present
+        run: npm install --if-present
       
       - name: Check formatting
         run: npm run format:check
@@ -97,7 +97,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci --workspaces --if-present
+        run: npm install --if-present
       
       - name: Check licenses
         run: |
@@ -119,7 +119,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci --workspaces --if-present
+        run: npm install --if-present
       
       - name: Analyze code complexity
         run: |

@@ -9,7 +9,7 @@
   "dependencies": {
     "@cyberintel/shared": "*",
     "axios": "^1.6.8",
-    "dns": "^0.2.2",
+
     "whois": "^2.13.5"
   },
   "devDependencies": {

@@ -2,7 +2,11 @@
   "extends": "../shared/tsconfig.json",
   "compilerOptions": {
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "skipLibCheck": true,
+    "paths": {
+      "@cyberintel/shared": ["../shared/src/index.ts"]
+    }
   },
   "include": ["src/**/*"],
   "references": [

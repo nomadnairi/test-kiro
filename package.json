@@ -40,7 +40,7 @@
     "shared"
   ],
   "scripts": {
-    "postinstall": "npm run build:shared",
+    "postinstall": "npm run build --workspace=shared",
     "build:shared": "npm run build --workspace=shared",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:gateway\" \"npm run dev:orchestrator\"",
     "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:gateway\" \"npm run dev:orchestrator\" \"npm run dev:graph\" \"npm run dev:ai-router\"",
@@ -73,7 +73,7 @@
     "clean": "npm run clean --workspaces --if-present && rm -rf node_modules",
     "clean:all": "npm run clean && docker-compose down -v",
     "check": "npm run typecheck && npm run lint && npm run test",
-    "prepare": "npm run build:shared"
+    "prepare": "npm run build --workspace=shared"
   },
   "devDependencies": {
     "concurrently": "^8.2.2",

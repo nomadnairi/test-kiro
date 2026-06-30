@@ -97,13 +97,29 @@ export async function scanRoutes(fastify: FastifyInstance) {
     const { limit = 50, offset = 0 } = request.query as any;
 
     const result = await pool.query(
-      `SELECT s.*,
-        (SELECT COUNT(*) FROM entities WHERE scan_id = s.id) as entity_count,
-        (SELECT COUNT(*) FROM iocs WHERE scan_id = s.id) as ioc_count
-       FROM scans s
-       WHERE s.user_id = $1
-       ORDER BY s.created_at DESC
-       LIMIT $2 OFFSET $3`,
+      `WITH page_scans AS (
+         SELECT * FROM scans
+         WHERE user_id = $1
+         ORDER BY created_at DESC
+         LIMIT $2 OFFSET $3
+       )
+       SELECT s.*,
+         COALESCE(e.entity_count, 0) as entity_count,
+         COALESCE(i.ioc_count, 0) as ioc_count
+       FROM page_scans s
+       LEFT JOIN (
+         SELECT scan_id, COUNT(*) as entity_count
+         FROM entities
+         WHERE scan_id IN (SELECT id FROM page_scans)
+         GROUP BY scan_id
+       ) e ON e.scan_id = s.id
+       LEFT JOIN (
+         SELECT scan_id, COUNT(*) as ioc_count
+         FROM iocs
+         WHERE scan_id IN (SELECT id FROM page_scans)
+         GROUP BY scan_id
+       ) i ON i.scan_id = s.id
+       ORDER BY s.created_at DESC`,
       [user.id, limit, offset]
     );
 

@@ -264,7 +264,7 @@ jobs:
       - name: Build Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./${{ matrix.service }}
+          context: .
           file: ./${{ matrix.service }}/Dockerfile
           push: false
           tags: cyberintel-${{ matrix.service }}:test

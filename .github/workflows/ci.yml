@@ -35,7 +35,7 @@ jobs:
           cat package.json | grep -A 15 "workspaces"
       
       - name: Install dependencies (all workspaces)
-        run: npm ci --workspaces --if-present
+        run: npm install --workspaces --if-present
       
       - name: Build shared library
         run: npm run build --workspace=shared
@@ -77,7 +77,7 @@ jobs:
           key: ${{ runner.os }}-build-${{ hashFiles('**/package-lock.json') }}
       
       - name: Install dependencies
-        run: npm ci --workspaces --if-present
+        run: npm install --workspaces --if-present
       
       - name: Build shared library
         run: npm run build --workspace=shared
@@ -111,7 +111,7 @@ jobs:
           key: ${{ runner.os }}-build-${{ hashFiles('**/package-lock.json') }}
       
       - name: Install dependencies
-        run: npm ci --workspaces --if-present
+        run: npm install --workspaces --if-present
       
       - name: Build shared library
         run: npm run build --workspace=shared
@@ -145,7 +145,7 @@ jobs:
           key: ${{ runner.os }}-build-${{ hashFiles('**/package-lock.json') }}
       
       - name: Install dependencies
-        run: npm ci --workspaces --if-present
+        run: npm install --workspaces --if-present
       
       - name: Build shared library
         run: npm run build --workspace=shared
@@ -181,7 +181,7 @@ jobs:
           cache: 'npm'
       
       - name: Install dependencies
-        run: npm ci --workspaces --if-present
+        run: npm install --workspaces --if-present
       
       - name: Build shared library first
         if: matrix.workspace != 'shared'

@@ -30,7 +30,7 @@ class AttackSurfaceAgent(BaseAgent):
         results["entry_points"] = await self.find_entry_points(scan_id)
         
         # Correlate vulnerabilities
-        results["vulnerabilities"] = await self.correlate_vulnerabilities(scan_id)
+        results["vulnerabilities"] = await self.correlate_vulnerabilities(results["exposed_assets"])
         
         # Calculate risk score
         results["risk_score"] = await self.calculate_risk_score(results)
@@ -56,10 +56,25 @@ class AttackSurfaceAgent(BaseAgent):
         # TODO: Identify entry points from scan data
         return []
     
-    async def correlate_vulnerabilities(self, scan_id: str) -> List[Dict[str, Any]]:
+    async def correlate_vulnerabilities(self, exposed_assets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Correlate known vulnerabilities"""
-        # TODO: Match assets with known vulnerabilities
-        return []
+        vulnerabilities = []
+        for asset in exposed_assets:
+            asset_vulns = asset.get("vulnerabilities", [])
+            for vuln in asset_vulns:
+                # If vuln is a dict, associate it with the asset
+                if isinstance(vuln, dict):
+                    vuln_copy = vuln.copy()
+                    vuln_copy["asset_id"] = asset.get("id")
+                    vuln_copy["asset_type"] = asset.get("type")
+                    vulnerabilities.append(vuln_copy)
+                else:
+                    vulnerabilities.append({
+                        "id": vuln,
+                        "asset_id": asset.get("id"),
+                        "asset_type": asset.get("type")
+                    })
+        return vulnerabilities
     
     async def calculate_risk_score(self, results: Dict[str, Any]) -> int:
         """Calculate overall risk score (0-100)"""

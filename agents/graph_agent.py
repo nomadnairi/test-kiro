@@ -1,6 +1,5 @@
 from base_agent import BaseAgent
 from typing import Dict, Any, List
-from neo4j import AsyncGraphDatabase
 
 
 class GraphAnalysisAgent(BaseAgent):
@@ -8,16 +7,10 @@ class GraphAnalysisAgent(BaseAgent):
     
     def __init__(self, ai_router_url: str, neo4j_uri: str, neo4j_user: str, neo4j_password: str):
         super().__init__("GRAPH_ANALYSIS", ai_router_url)
-        self.driver = AsyncGraphDatabase.driver(neo4j_uri, auth=(neo4j_user, neo4j_password))
+        # TODO: Initialize Neo4j connection
         self.neo4j_uri = neo4j_uri
         self.neo4j_user = neo4j_user
         self.neo4j_password = neo4j_password
-
-    async def close(self):
-        """Cleanup resources"""
-        if hasattr(self, 'driver'):
-            await self.driver.close()
-        await super().close()
     
     async def execute(self, context: Dict[str, Any]) -> Dict[str, Any]:
         """Execute graph analysis"""
@@ -59,25 +52,8 @@ class GraphAnalysisAgent(BaseAgent):
     
     async def find_attack_paths(self, scan_id: str) -> List[Dict[str, Any]]:
         """Find potential attack paths"""
-        query = """
-        MATCH path = (start {scan_id: $scan_id})-[*1..5]->(end)
-        WHERE end:VULNERABILITY OR end:EXPOSED_SERVICE
-        RETURN path
-        LIMIT 10
-        """
-        paths = []
-        async with self.driver.session() as session:
-            result = await session.run(query, {"scan_id": scan_id})
-            async for record in result:
-                path_obj = record.get("path")
-                if path_obj:
-                    nodes = [dict(node.items()) for node in path_obj.nodes]
-                    relationships = [rel.type for rel in path_obj.relationships]
-                    paths.append({
-                        "nodes": nodes,
-                        "relationships": relationships
-                    })
-        return paths
+        # TODO: Implement path finding
+        return []
     
     async def calculate_centrality(self, scan_id: str) -> Dict[str, Any]:
         """Calculate node centrality metrics"""

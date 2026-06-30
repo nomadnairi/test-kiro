@@ -1,6 +1,10 @@
+import os
+import httpx
+import logging
 from base_agent import BaseAgent
 from typing import Dict, Any, List
 
+logger = logging.getLogger(__name__)
 
 class ThreatIntelAgent(BaseAgent):
     """Threat Intelligence Agent - Gather threat intelligence from multiple sources"""
@@ -116,13 +120,45 @@ class ThreatIntelAgent(BaseAgent):
     
     async def query_virustotal_ip(self, ip: str) -> Dict[str, Any]:
         """Query VirusTotal for IP"""
-        # TODO: Implement VirusTotal API call
-        return {}
+        api_key = self.integrations.get("virustotal_api_key") or os.getenv("VIRUSTOTAL_API_KEY")
+        if not api_key:
+            return {}
+
+        try:
+            response = await self.client.get(
+                f"https://www.virustotal.com/api/v3/ip_addresses/{ip}",
+                headers={"x-apikey": api_key}
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            logger.error(f"VirusTotal IP query failed for {ip}: {e}")
+            self.log_action("VirusTotal IP query failed", {"ip": ip, "error": str(e)})
+            return {}
+        except Exception as e:
+            logger.error(f"Unexpected error in VirusTotal IP query for {ip}: {e}")
+            return {}
     
     async def query_virustotal_domain(self, domain: str) -> Dict[str, Any]:
         """Query VirusTotal for domain"""
-        # TODO: Implement VirusTotal API call
-        return {}
+        api_key = self.integrations.get("virustotal_api_key") or os.getenv("VIRUSTOTAL_API_KEY")
+        if not api_key:
+            return {}
+
+        try:
+            response = await self.client.get(
+                f"https://www.virustotal.com/api/v3/domains/{domain}",
+                headers={"x-apikey": api_key}
+            )
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as e:
+            logger.error(f"VirusTotal domain query failed for {domain}: {e}")
+            self.log_action("VirusTotal domain query failed", {"domain": domain, "error": str(e)})
+            return {}
+        except Exception as e:
+            logger.error(f"Unexpected error in VirusTotal domain query for {domain}: {e}")
+            return {}
     
     async def query_abuseipdb(self, ip: str) -> Dict[str, Any]:
         """Query AbuseIPDB"""

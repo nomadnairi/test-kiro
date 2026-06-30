@@ -3,7 +3,7 @@ export { BaseTool, ToolConfig, ToolResult } from './base-tool';
 export { ToolOrchestrator } from './tool-orchestrator';
 
 // Recon tools
-export { AmassT ool } from './recon/amass';
+export { AmassTool } from './recon/amass';
 export { SubfinderTool } from './recon/subfinder';
 export { AssetfinderTool } from './recon/assetfinder';
 export { NucleiTool } from './recon/nuclei';

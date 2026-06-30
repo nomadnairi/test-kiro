@@ -1,6 +1,11 @@
 from base_agent import BaseAgent
 from typing import Dict, Any, List
 import httpx
+import whois
+import asyncio
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class ReconAgent(BaseAgent):
@@ -94,7 +99,17 @@ class ReconAgent(BaseAgent):
     
     async def get_whois(self, domain: str) -> Dict[str, Any]:
         """Get WHOIS data"""
-        # TODO: Implement WHOIS lookup
+        try:
+            # Run the blocking whois lookup in a separate thread
+            data = await asyncio.to_thread(whois.whois, domain)
+            if data:
+                return {
+                    "type": "WHOIS",
+                    "domain": domain,
+                    "data": dict(data)
+                }
+        except Exception as e:
+            logger.error(f"Error fetching WHOIS data for {domain}: {e}")
         return {}
     
     async def reverse_dns(self, ip: str) -> Dict[str, Any]:

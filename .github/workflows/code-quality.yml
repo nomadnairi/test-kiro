@@ -20,7 +20,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Install dependencies
         run: npm ci --workspaces --if-present
@@ -41,7 +41,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Run npm audit
         run: npm audit --audit-level=moderate || true
@@ -71,7 +71,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Check for outdated dependencies
         run: npm outdated || true
@@ -94,7 +94,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Install dependencies
         run: npm ci --workspaces --if-present
@@ -116,7 +116,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Install dependencies
         run: npm ci --workspaces --if-present

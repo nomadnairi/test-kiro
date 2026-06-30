@@ -25,7 +25,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Verify npm workspaces configuration
         run: |
@@ -65,7 +65,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Restore cache
         uses: actions/cache@v4
@@ -99,7 +99,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Restore cache
         uses: actions/cache@v4
@@ -133,7 +133,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Restore cache
         uses: actions/cache@v4
@@ -178,7 +178,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          # cache: npm
       
       - name: Install dependencies
         run: npm ci --workspaces --if-present

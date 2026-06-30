@@ -3,7 +3,7 @@ export { BaseTool, ToolConfig, ToolResult } from './base-tool';
 export { ToolOrchestrator } from './tool-orchestrator';
 
 // Recon tools
-export { AmassT ool } from './recon/amass';
+export { AmassTool } from './recon/amass';
 export { SubfinderTool } from './recon/subfinder';
 export { AssetfinderTool } from './recon/assetfinder';
 export { NucleiTool } from './recon/nuclei';
@@ -49,13 +49,13 @@ export const AVAILABLE_TOOLS = {
   masscan: MasscanTool,
   photon: PhotonTool,
   aquatone: AquatoneTool,
-  
+
   // Social
   sherlock: SherlockTool,
   holehe: HoleheTool,
   maigret: MaigretTool,
   socialscan: SocialscanTool,
-  
+
   // Code
   trufflehog: TruffleHogTool,
   gitleaks: GitleaksTool,
@@ -72,19 +72,19 @@ export function getTool(name: ToolName): BaseTool {
 }
 
 export function getAllTools(): BaseTool[] {
-  return Object.values(AVAILABLE_TOOLS).map(ToolClass => new ToolClass());
+  return Object.values(AVAILABLE_TOOLS).map((ToolClass) => new ToolClass());
 }
 
 export async function checkToolAvailability(): Promise<Record<string, boolean>> {
   const tools = getAllTools();
   const availability: Record<string, boolean> = {};
-  
+
   await Promise.all(
     tools.map(async (tool) => {
       const available = await tool.checkAvailability();
       availability[tool['config'].name] = available;
     })
   );
-  
+
   return availability;
 }

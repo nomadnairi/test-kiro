@@ -38,8 +38,8 @@ export class GauTool extends BaseTool {
   protected parseOutput(output: string): any {
     const urls = output
       .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
 
     return {
       urls,

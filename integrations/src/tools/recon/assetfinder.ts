@@ -26,8 +26,8 @@ export class AssetfinderTool extends BaseTool {
   protected parseOutput(output: string): any {
     const subdomains = output
       .split('\n')
-      .map(line => line.trim())
-      .filter(line => line.length > 0);
+      .map((line) => line.trim())
+      .filter((line) => line.length > 0);
 
     return {
       subdomains,

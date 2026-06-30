@@ -16,7 +16,7 @@ export class ProviderRegistry {
   }
 
   listProviders(): Array<{ name: string; available: boolean }> {
-    return Array.from(this.providers.values()).map(p => ({
+    return Array.from(this.providers.values()).map((p) => ({
       name: p.name,
       available: p.available,
     }));

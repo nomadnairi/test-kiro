@@ -46,7 +46,7 @@ export class AIReconPlanner {
 
       const plan = this.parsePlan(response.data.content);
       logger.info('AI recon plan created', { phases: plan.phases.length });
-      
+
       return plan;
     } catch (error) {
       logger.error('Failed to create AI plan', error);
@@ -192,7 +192,7 @@ Return ONLY valid JSON.`;
   private async executePhase(target: string, phase: ReconPhase): Promise<any> {
     try {
       const endpoint = phase.parallel ? '/execute-parallel' : '/execute-sequential';
-      
+
       const response = await axios.post(`${this.toolOrchestratorUrl}${endpoint}`, {
         tools: phase.tools,
         target,
@@ -256,7 +256,7 @@ Return ONLY valid JSON.`;
 
     // Group entities by type
     const byType: Record<string, any[]> = {};
-    entities.forEach(entity => {
+    entities.forEach((entity) => {
       if (!byType[entity.type]) {
         byType[entity.type] = [];
       }
@@ -268,7 +268,7 @@ Return ONLY valid JSON.`;
       pivots.push({
         type: 'subdomain_expansion',
         reason: `Found ${byType.DOMAIN.length} subdomains`,
-        targets: byType.DOMAIN.slice(0, 5).map(e => e.value),
+        targets: byType.DOMAIN.slice(0, 5).map((e) => e.value),
       });
     }
 
@@ -276,17 +276,17 @@ Return ONLY valid JSON.`;
       pivots.push({
         type: 'ip_investigation',
         reason: `Found ${byType.IP.length} IPs`,
-        targets: byType.IP.map(e => e.value),
+        targets: byType.IP.map((e) => e.value),
       });
     }
 
     if (byType.VULNERABILITY) {
-      const critical = byType.VULNERABILITY.filter(v => v.severity === 'critical');
+      const critical = byType.VULNERABILITY.filter((v) => v.severity === 'critical');
       if (critical.length > 0) {
         pivots.push({
           type: 'vulnerability_analysis',
           reason: `Found ${critical.length} critical vulnerabilities`,
-          targets: critical.map(v => v.value),
+          targets: critical.map((v) => v.value),
         });
       }
     }

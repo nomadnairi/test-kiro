@@ -52,17 +52,17 @@ export class AquatoneTool extends BaseTool {
     // Parse console output for summary
     const hosts: string[] = [];
     const screenshots: string[] = [];
-    
-    output.split('\n').forEach(line => {
+
+    output.split('\n').forEach((line) => {
       const trimmed = line.trim();
-      
+
       if (trimmed.includes('http://') || trimmed.includes('https://')) {
         const match = trimmed.match(/(https?:\/\/[^\s]+)/);
         if (match) {
           hosts.push(match[1]);
         }
       }
-      
+
       if (trimmed.includes('.png')) {
         screenshots.push(trimmed);
       }

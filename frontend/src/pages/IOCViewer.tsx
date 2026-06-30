@@ -14,9 +14,7 @@ export default function IOCViewer() {
       if (search) params.append('q', search);
       if (threatLevel) params.append('threatLevel', threatLevel);
 
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/iocs?${params}`
-      );
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/iocs?${params}`);
       return response.data.iocs;
     },
   });

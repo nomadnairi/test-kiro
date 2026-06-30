@@ -29,7 +29,7 @@ export class TruffleHogTool extends BaseTool {
 
   protected parseOutput(output: string): any {
     const secrets: any[] = [];
-    const lines = output.split('\n').filter(line => line.trim());
+    const lines = output.split('\n').filter((line) => line.trim());
 
     for (const line of lines) {
       try {
@@ -52,8 +52,8 @@ export class TruffleHogTool extends BaseTool {
     return {
       secrets,
       total: secrets.length,
-      verified: secrets.filter(s => s.verified).length,
-      types: [...new Set(secrets.map(s => s.detector))],
+      verified: secrets.filter((s) => s.verified).length,
+      types: [...new Set(secrets.map((s) => s.detector))],
     };
   }
 }

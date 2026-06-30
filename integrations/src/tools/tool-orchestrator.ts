@@ -54,10 +54,10 @@ export class ToolOrchestrator {
     });
 
     const results = await Promise.all(checks);
-    
+
     logger.info('Tool availability check complete', {
-      available: results.filter(r => r.available).map(r => r.name),
-      unavailable: results.filter(r => !r.available).map(r => r.name),
+      available: results.filter((r) => r.available).map((r) => r.name),
+      unavailable: results.filter((r) => !r.available).map((r) => r.name),
     });
   }
 
@@ -108,7 +108,7 @@ export class ToolOrchestrator {
 
     logger.info('Parallel execution complete', {
       total: tools.length,
-      successful: Object.values(resultMap).filter(r => r.success).length,
+      successful: Object.values(resultMap).filter((r) => r.success).length,
     });
 
     return resultMap;
@@ -129,7 +129,7 @@ export class ToolOrchestrator {
 
     logger.info('Sequential execution complete', {
       total: tools.length,
-      successful: Object.values(results).filter(r => r.success).length,
+      successful: Object.values(results).filter((r) => r.success).length,
     });
 
     return results;

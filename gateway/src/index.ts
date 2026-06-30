@@ -60,7 +60,7 @@ async function start() {
 
   // Protected routes
   fastify.addHook('onRequest', authMiddleware);
-  
+
   await fastify.register(scanRoutes, { prefix: '/api/scans' });
   await fastify.register(entityRoutes, { prefix: '/api/entities' });
   await fastify.register(iocRoutes, { prefix: '/api/iocs' });

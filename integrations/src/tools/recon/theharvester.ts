@@ -38,7 +38,7 @@ export class TheHarvesterTool extends BaseTool {
     const lines = output.split('\n');
     let section = '';
 
-    lines.forEach(line => {
+    lines.forEach((line) => {
       const trimmed = line.trim();
 
       if (trimmed.includes('[*] Emails found:')) {

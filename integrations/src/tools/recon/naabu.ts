@@ -43,7 +43,7 @@ export class NaabuTool extends BaseTool {
   protected parseOutput(output: string): any {
     const ports: any[] = [];
 
-    output.split('\n').forEach(line => {
+    output.split('\n').forEach((line) => {
       if (line.trim()) {
         try {
           const data = JSON.parse(line);
@@ -57,7 +57,7 @@ export class NaabuTool extends BaseTool {
     return {
       ports,
       count: ports.length,
-      open: ports.filter(p => p.status === 'open').length,
+      open: ports.filter((p) => p.status === 'open').length,
     };
   }
 }

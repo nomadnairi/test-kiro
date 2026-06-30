@@ -17,19 +17,19 @@ export default function GraphExplorer() {
           selector: 'node',
           style: {
             'background-color': '#00f0ff',
-            'label': 'data(label)',
-            'color': '#fff',
+            label: 'data(label)',
+            color: '#fff',
             'text-valign': 'center',
             'text-halign': 'center',
             'font-size': '12px',
-            'width': '60px',
-            'height': '60px',
+            width: '60px',
+            height: '60px',
           },
         },
         {
           selector: 'edge',
           style: {
-            'width': 2,
+            width: 2,
             'line-color': '#1e2442',
             'target-arrow-color': '#1e2442',
             'target-arrow-shape': 'triangle',
@@ -64,10 +64,7 @@ export default function GraphExplorer() {
       </div>
 
       <div className="cyber-card">
-        <div
-          ref={containerRef}
-          className="w-full h-[600px] bg-cyber-bg rounded"
-        />
+        <div ref={containerRef} className="w-full h-[600px] bg-cyber-bg rounded" />
       </div>
     </div>
   );

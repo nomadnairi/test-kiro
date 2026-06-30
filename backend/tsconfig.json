@@ -5,8 +5,5 @@
     "rootDir": "./src"
   },
   "include": ["src/**/*"],
-  "references": [
-    { "path": "../shared" },
-    { "path": "../integrations" }
-  ]
+  "references": [{ "path": "../shared" }, { "path": "../integrations" }]
 }

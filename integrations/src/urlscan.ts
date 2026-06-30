@@ -5,7 +5,10 @@ export class URLScanIntegration extends BaseIntegration {
   name = 'urlscan';
   private baseUrl = 'https://urlscan.io/api/v1';
 
-  async scanURL(url: string, visibility: 'public' | 'unlisted' | 'private' = 'unlisted'): Promise<IntegrationResult> {
+  async scanURL(
+    url: string,
+    visibility: 'public' | 'unlisted' | 'private' = 'unlisted'
+  ): Promise<IntegrationResult> {
     try {
       // Submit scan
       const submitResponse = await axios.post(
@@ -23,7 +26,7 @@ export class URLScanIntegration extends BaseIntegration {
       const uuid = submitResponse.data.uuid;
 
       // Wait for scan to complete
-      await new Promise(resolve => setTimeout(resolve, 10000));
+      await new Promise((resolve) => setTimeout(resolve, 10000));
 
       // Get results
       const resultResponse = await axios.get(`${this.baseUrl}/result/${uuid}/`, {

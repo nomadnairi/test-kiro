@@ -45,7 +45,10 @@ export default function Scans() {
           <h1 className="text-3xl font-bold glow-text">Scans</h1>
           <p className="text-gray-400 mt-2">Manage and monitor intelligence scans</p>
         </div>
-        <button onClick={() => setShowCreateModal(true)} className="cyber-button flex items-center gap-2">
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="cyber-button flex items-center gap-2"
+        >
           <Plus className="w-5 h-5" />
           New Scan
         </button>
@@ -56,7 +59,9 @@ export default function Scans() {
         {isLoading ? (
           <div className="text-center py-12 text-gray-400">Loading scans...</div>
         ) : scans?.length === 0 ? (
-          <div className="text-center py-12 text-gray-400">No scans yet. Create your first scan!</div>
+          <div className="text-center py-12 text-gray-400">
+            No scans yet. Create your first scan!
+          </div>
         ) : (
           <div className="space-y-3">
             {scans?.map((scan: any) => (
@@ -75,10 +80,10 @@ export default function Scans() {
                         scan.status === 'COMPLETED'
                           ? 'bg-cyber-accent/20 text-cyber-accent'
                           : scan.status === 'RUNNING'
-                          ? 'bg-cyber-warning/20 text-cyber-warning'
-                          : scan.status === 'FAILED'
-                          ? 'bg-cyber-danger/20 text-cyber-danger'
-                          : 'bg-gray-500/20 text-gray-400'
+                            ? 'bg-cyber-warning/20 text-cyber-warning'
+                            : scan.status === 'FAILED'
+                              ? 'bg-cyber-danger/20 text-cyber-danger'
+                              : 'bg-gray-500/20 text-gray-400'
                       }`}
                     >
                       {scan.status}

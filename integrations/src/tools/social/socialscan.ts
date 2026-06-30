@@ -37,11 +37,11 @@ export class SocialscanTool extends BaseTool {
   protected parseOutput(output: string): any {
     try {
       const results = JSON.parse(output);
-      
+
       const available: any[] = [];
       const unavailable: any[] = [];
 
-      Object.keys(results).forEach(platform => {
+      Object.keys(results).forEach((platform) => {
         const status = results[platform];
         if (status.available) {
           available.push({ platform, ...status });

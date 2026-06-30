@@ -28,10 +28,10 @@ export async function authRoutes(fastify: FastifyInstance) {
       const { email, username, password } = RegisterSchema.parse(request.body);
 
       // Check if user exists
-      const existing = await pool.query(
-        'SELECT id FROM users WHERE email = $1 OR username = $2',
-        [email, username]
-      );
+      const existing = await pool.query('SELECT id FROM users WHERE email = $1 OR username = $2', [
+        email,
+        username,
+      ]);
 
       if (existing.rows.length > 0) {
         return reply.code(409).send({ error: 'User already exists' });
@@ -72,10 +72,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       const { email, password } = LoginSchema.parse(request.body);
 
       // Get user
-      const result = await pool.query(
-        'SELECT * FROM users WHERE email = $1',
-        [email]
-      );
+      const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
 
       if (result.rows.length === 0) {
         return reply.code(401).send({ error: 'Invalid credentials' });
@@ -90,10 +87,7 @@ export async function authRoutes(fastify: FastifyInstance) {
       }
 
       // Update last login
-      await pool.query(
-        'UPDATE users SET last_login = NOW() WHERE id = $1',
-        [user.id]
-      );
+      await pool.query('UPDATE users SET last_login = NOW() WHERE id = $1', [user.id]);
 
       // Generate token
       const token = fastify.jwt.sign({
@@ -125,10 +119,9 @@ export async function authRoutes(fastify: FastifyInstance) {
       await request.jwtVerify();
       const user = request.user as any;
 
-      const result = await pool.query(
-        'SELECT id, email, username, role FROM users WHERE id = $1',
-        [user.id]
-      );
+      const result = await pool.query('SELECT id, email, username, role FROM users WHERE id = $1', [
+        user.id,
+      ]);
 
       if (result.rows.length === 0) {
         return reply.code(401).send({ error: 'User not found' });

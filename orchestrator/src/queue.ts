@@ -37,11 +37,14 @@ export class TaskQueue {
     logger.info('Task enqueued', { taskId, type: task.type, agentType: task.agentType });
 
     // Publish event
-    await this.redis.publish('task:updates', JSON.stringify({
-      taskId,
-      status: TaskStatus.QUEUED,
-      timestamp: new Date().toISOString(),
-    }));
+    await this.redis.publish(
+      'task:updates',
+      JSON.stringify({
+        taskId,
+        status: TaskStatus.QUEUED,
+        timestamp: new Date().toISOString(),
+      })
+    );
 
     return taskId;
   }
@@ -49,7 +52,7 @@ export class TaskQueue {
   async dequeue(): Promise<Task | null> {
     // Get highest priority task
     const result = await this.redis.zpopmin(this.queueName);
-    
+
     if (!result || result.length === 0) {
       return null;
     }
@@ -85,12 +88,15 @@ export class TaskQueue {
 
     logger.info('Task completed', { taskId, type: task.type });
 
-    await this.redis.publish('task:updates', JSON.stringify({
-      taskId,
-      status: TaskStatus.COMPLETED,
-      result,
-      timestamp: new Date().toISOString(),
-    }));
+    await this.redis.publish(
+      'task:updates',
+      JSON.stringify({
+        taskId,
+        status: TaskStatus.COMPLETED,
+        result,
+        timestamp: new Date().toISOString(),
+      })
+    );
   }
 
   async fail(taskId: string, error: string): Promise<void> {
@@ -103,9 +109,9 @@ export class TaskQueue {
     if (task.retries < task.maxRetries) {
       task.retries++;
       task.status = TaskStatus.RETRYING;
-      
+
       await this.redis.set(`task:${taskId}`, JSON.stringify(task), 'EX', 86400);
-      
+
       // Re-queue with exponential backoff
       const delay = Math.pow(2, task.retries) * 1000;
       const score = Date.now() + delay;
@@ -121,12 +127,15 @@ export class TaskQueue {
 
       logger.error('Task failed', { taskId, error });
 
-      await this.redis.publish('task:updates', JSON.stringify({
-        taskId,
-        status: TaskStatus.FAILED,
-        error,
-        timestamp: new Date().toISOString(),
-      }));
+      await this.redis.publish(
+        'task:updates',
+        JSON.stringify({
+          taskId,
+          status: TaskStatus.FAILED,
+          error,
+          timestamp: new Date().toISOString(),
+        })
+      );
     }
   }
 
@@ -144,7 +153,7 @@ export class TaskQueue {
   async getStats(): Promise<any> {
     const queueSize = await this.redis.zcard(this.queueName);
     const keys = await this.redis.keys('task:*');
-    
+
     const tasks = await Promise.all(
       keys.map(async (key) => {
         const data = await this.redis.get(key);
@@ -152,12 +161,15 @@ export class TaskQueue {
       })
     );
 
-    const statusCounts = tasks.reduce((acc, task) => {
-      if (task) {
-        acc[task.status] = (acc[task.status] || 0) + 1;
-      }
-      return acc;
-    }, {} as Record<string, number>);
+    const statusCounts = tasks.reduce(
+      (acc, task) => {
+        if (task) {
+          acc[task.status] = (acc[task.status] || 0) + 1;
+        }
+        return acc;
+      },
+      {} as Record<string, number>
+    );
 
     return {
       queueSize,

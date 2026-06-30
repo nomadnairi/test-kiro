@@ -14,7 +14,8 @@ export const validateIP = (ip: string): boolean => {
 };
 
 export const validateDomain = (domain: string): boolean => {
-  const domainRegex = /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
+  const domainRegex =
+    /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z0-9][a-z0-9-]{0,61}[a-z0-9]$/i;
   return domainRegex.test(domain);
 };
 
@@ -48,7 +49,7 @@ export const detectEntityType = (value: string): EntityType => {
   }
   if (/^CVE-\d{4}-\d{4,}$/i.test(value)) return EntityType.CVE;
   if (/^AS\d+$/i.test(value)) return EntityType.ASN;
-  
+
   throw new ValidationError(`Unable to detect entity type for: ${value}`);
 };
 
@@ -58,7 +59,7 @@ export const sanitizeInput = (input: string): string => {
 
 export const validateScanTarget = (target: string, type?: EntityType): void => {
   const detectedType = type || detectEntityType(target);
-  
+
   switch (detectedType) {
     case EntityType.IP:
       if (!validateIP(target)) throw new ValidationError('Invalid IP address');

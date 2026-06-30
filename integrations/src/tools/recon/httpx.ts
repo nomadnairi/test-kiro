@@ -45,7 +45,7 @@ export class HttpxTool extends BaseTool {
   protected parseOutput(output: string): any {
     const results: any[] = [];
 
-    output.split('\n').forEach(line => {
+    output.split('\n').forEach((line) => {
       if (line.trim()) {
         try {
           results.push(JSON.parse(line));
@@ -58,7 +58,7 @@ export class HttpxTool extends BaseTool {
     return {
       hosts: results,
       count: results.length,
-      alive: results.filter(r => r.status_code >= 200 && r.status_code < 400).length,
+      alive: results.filter((r) => r.status_code >= 200 && r.status_code < 400).length,
     };
   }
 }

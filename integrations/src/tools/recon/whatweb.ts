@@ -40,14 +40,14 @@ export class WhatWebTool extends BaseTool {
   protected parseOutput(output: string): any {
     try {
       const results = JSON.parse(output);
-      
+
       const technologies: string[] = [];
       const plugins: any[] = [];
 
       if (Array.isArray(results)) {
         results.forEach((result: any) => {
           if (result.plugins) {
-            Object.keys(result.plugins).forEach(plugin => {
+            Object.keys(result.plugins).forEach((plugin) => {
               technologies.push(plugin);
               plugins.push({
                 name: plugin,

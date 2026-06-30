@@ -39,7 +39,7 @@ export class DnsxTool extends BaseTool {
   protected parseOutput(output: string): any {
     const records: any[] = [];
 
-    output.split('\n').forEach(line => {
+    output.split('\n').forEach((line) => {
       if (line.trim()) {
         try {
           records.push(JSON.parse(line));
@@ -52,7 +52,7 @@ export class DnsxTool extends BaseTool {
     return {
       records,
       count: records.length,
-      types: [...new Set(records.map(r => r.type))],
+      types: [...new Set(records.map((r) => r.type))],
     };
   }
 }

@@ -14,9 +14,7 @@ export default function EntityViewer() {
       if (search) params.append('q', search);
       if (type) params.append('type', type);
 
-      const response = await axios.get(
-        `${import.meta.env.VITE_API_URL}/api/entities?${params}`
-      );
+      const response = await axios.get(`${import.meta.env.VITE_API_URL}/api/entities?${params}`);
       return response.data.entities;
     },
   });

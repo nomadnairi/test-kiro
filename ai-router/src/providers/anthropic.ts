@@ -17,15 +17,15 @@ export class AnthropicProvider extends AIProvider {
   async chat(request: ChatRequest): Promise<ChatResponse> {
     try {
       // Extract system message
-      const systemMessage = request.messages.find(m => m.role === 'system');
-      const messages = request.messages.filter(m => m.role !== 'system');
+      const systemMessage = request.messages.find((m) => m.role === 'system');
+      const messages = request.messages.filter((m) => m.role !== 'system');
 
       const response = await this.client.messages.create({
         model: request.model || 'claude-3-5-sonnet-20241022',
         max_tokens: request.maxTokens || 4096,
         temperature: request.temperature || 0.7,
         system: systemMessage?.content,
-        messages: messages.map(m => ({
+        messages: messages.map((m) => ({
           role: m.role as 'user' | 'assistant',
           content: m.content,
         })),
@@ -53,15 +53,15 @@ export class AnthropicProvider extends AIProvider {
 
   async *chatStream(request: ChatRequest): AsyncGenerator<any> {
     try {
-      const systemMessage = request.messages.find(m => m.role === 'system');
-      const messages = request.messages.filter(m => m.role !== 'system');
+      const systemMessage = request.messages.find((m) => m.role === 'system');
+      const messages = request.messages.filter((m) => m.role !== 'system');
 
       const stream = await this.client.messages.create({
         model: request.model || 'claude-3-5-sonnet-20241022',
         max_tokens: request.maxTokens || 4096,
         temperature: request.temperature || 0.7,
         system: systemMessage?.content,
-        messages: messages.map(m => ({
+        messages: messages.map((m) => ({
           role: m.role as 'user' | 'assistant',
           content: m.content,
         })),

@@ -27,7 +27,7 @@ export class OpenRouterProvider extends AIProvider {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
           },
         }
@@ -65,7 +65,7 @@ export class OpenRouterProvider extends AIProvider {
         },
         {
           headers: {
-            'Authorization': `Bearer ${this.apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
             'Content-Type': 'application/json',
           },
           responseType: 'stream',
@@ -73,13 +73,16 @@ export class OpenRouterProvider extends AIProvider {
       );
 
       for await (const chunk of response.data) {
-        const lines = chunk.toString().split('\n').filter((line: string) => line.trim());
-        
+        const lines = chunk
+          .toString()
+          .split('\n')
+          .filter((line: string) => line.trim());
+
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             const data = line.slice(6);
             if (data === '[DONE]') continue;
-            
+
             try {
               const parsed = JSON.parse(data);
               const content = parsed.choices[0]?.delta?.content;
@@ -104,7 +107,7 @@ export class OpenRouterProvider extends AIProvider {
   async checkAvailability(): Promise<boolean> {
     try {
       await axios.get(`${this.baseUrl}/models`, {
-        headers: { 'Authorization': `Bearer ${this.apiKey}` },
+        headers: { Authorization: `Bearer ${this.apiKey}` },
       });
       this.available = true;
       return true;

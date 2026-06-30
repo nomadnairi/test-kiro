@@ -38,7 +38,7 @@ export class WappalyzerTool extends BaseTool {
   protected parseOutput(output: string): any {
     try {
       const results = JSON.parse(output);
-      
+
       const technologies: any[] = [];
       const categories: string[] = [];
 
@@ -50,7 +50,7 @@ export class WappalyzerTool extends BaseTool {
             categories: tech.categories,
             confidence: tech.confidence,
           });
-          
+
           if (tech.categories) {
             categories.push(...tech.categories.map((c: any) => c.name));
           }

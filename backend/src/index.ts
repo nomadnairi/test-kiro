@@ -19,10 +19,7 @@ async function start() {
 
   const neo4jDriver = neo4j.driver(
     process.env.NEO4J_URI || 'bolt://localhost:7687',
-    neo4j.auth.basic(
-      process.env.NEO4J_USER || 'neo4j',
-      process.env.NEO4J_PASSWORD || 'cyberintel'
-    )
+    neo4j.auth.basic(process.env.NEO4J_USER || 'neo4j', process.env.NEO4J_PASSWORD || 'cyberintel')
   );
 
   const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');

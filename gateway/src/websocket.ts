@@ -22,15 +22,17 @@ subscriber.subscribe(
 
 subscriber.on('message', (channel, message) => {
   const data = JSON.parse(message);
-  
+
   // Broadcast to relevant connections
   connections.forEach((connection, userId) => {
     if (shouldReceiveMessage(userId, data)) {
-      connection.socket.send(JSON.stringify({
-        type: getMessageType(channel),
-        payload: data,
-        timestamp: new Date().toISOString(),
-      }));
+      connection.socket.send(
+        JSON.stringify({
+          type: getMessageType(channel),
+          payload: data,
+          timestamp: new Date().toISOString(),
+        })
+      );
     }
   });
 });
@@ -70,7 +72,7 @@ export async function wsHandler(connection: SocketStream, request: FastifyReques
     connection.socket.on('message', async (message: Buffer) => {
       try {
         const data = JSON.parse(message.toString());
-        
+
         // Handle client messages
         switch (data.type) {
           case 'subscribe':
@@ -99,7 +101,6 @@ export async function wsHandler(connection: SocketStream, request: FastifyReques
       logger.error('WebSocket error', error, { userId });
       connections.delete(userId);
     });
-
   } catch (error) {
     logger.error('WebSocket handler error', error);
     connection.socket.close(1011, 'Internal error');

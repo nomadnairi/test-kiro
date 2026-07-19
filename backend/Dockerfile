@@ -1,77 +1,90 @@
+# syntax=docker/dockerfile:1.7
 # ============================================================================
-# Backend Service - Monorepo-Aware Dockerfile
-# ============================================================================
-# This Dockerfile properly handles npm workspace dependencies by copying
-# the entire monorepo structure and using workspace-aware npm commands.
+# Backend Service — monorepo-aware, multi-stage, production-hardened
+# ----------------------------------------------------------------------------
+# Build context is the monorepo ROOT (see docker-compose.yml). Layers are
+# ordered so dependency installation stays cached until a manifest or the
+# lockfile changes.
 # ============================================================================
 
-FROM node:20-alpine AS builder
+ARG NODE_VERSION=20-alpine
 
-# Set working directory to monorepo root
+# ---------------------------------------------------------------------------
+# Stage 1: deps — install the full workspace dependency graph (cached)
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS deps
 WORKDIR /monorepo
 
-# Copy root package files for workspace configuration
-COPY package*.json ./
+# Only manifests + lockfile are needed to resolve dependencies, so copy them
+# first: `npm ci` is re-run only when dependencies actually change.
+COPY package.json package-lock.json .npmrc ./
+COPY shared/package.json ./shared/
+COPY integrations/package.json ./integrations/
+COPY backend/package.json ./backend/
 
-# Copy shared library package.json first (dependency)
-COPY shared/package*.json ./shared/
+# `--ignore-scripts` stops the root postinstall (which builds `shared`) from
+# firing before the source exists; the build stage compiles it explicitly.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts
 
-# Copy backend package.json
-COPY backend/package*.json ./backend/
+# ---------------------------------------------------------------------------
+# Stage 2: build — compile shared, integrations and the backend
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS build
+WORKDIR /monorepo
 
-# Copy integrations package.json (if backend depends on it)
-COPY integrations/package*.json ./integrations/
+COPY --from=deps /monorepo/node_modules ./node_modules
+COPY package.json package-lock.json ./
 
-# Install ALL workspace dependencies from root
-# This resolves @cyberintel/shared and other internal packages correctly
-RUN npm install --workspaces --if-present
-
-# Copy shared library source code
+# Build in dependency order.
 COPY shared/ ./shared/
-
-# Build shared library first (required by backend)
 RUN npm run build --workspace=shared
 
-# Copy integrations source code (if needed)
 COPY integrations/ ./integrations/
-
-# Build integrations if it has a build step
 RUN npm run build --workspace=integrations --if-present
 
-# Copy backend source code
 COPY backend/ ./backend/
-
-# Build backend service
 RUN npm run build --workspace=backend
 
-# ============================================================================
-# Production Stage
-# ============================================================================
-FROM node:20-alpine
+# Reduce node_modules to production-only for the runtime copy.
+RUN --mount=type=cache,target=/root/.npm \
+    npm prune --omit=dev
+
+# ---------------------------------------------------------------------------
+# Stage 3: runtime — minimal, non-root, signal-correct
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS runtime
+
+# tini reaps zombies and forwards signals so the container stops cleanly.
+RUN apk add --no-cache tini
+
+ENV NODE_ENV=production \
+    BACKEND_PORT=8001
 
 WORKDIR /app
 
-# Copy root package files
-COPY --from=builder /monorepo/package*.json ./
+# Pruned production dependency tree + compiled output. The /app layout mirrors
+# /monorepo so the workspace symlinks in node_modules stay valid.
+COPY --from=build /monorepo/node_modules ./node_modules
+COPY --from=build /monorepo/package.json ./package.json
+COPY --from=build /monorepo/shared/package.json ./shared/package.json
+COPY --from=build /monorepo/shared/dist ./shared/dist
+COPY --from=build /monorepo/integrations/package.json ./integrations/package.json
+COPY --from=build /monorepo/integrations/dist ./integrations/dist
+COPY --from=build /monorepo/backend/package.json ./backend/package.json
+COPY --from=build /monorepo/backend/dist ./backend/dist
 
-# Copy shared library (built)
-COPY --from=builder /monorepo/shared/package*.json ./shared/
-COPY --from=builder /monorepo/shared/dist ./shared/dist
-
-# Copy integrations (built)
-COPY --from=builder /monorepo/integrations/package*.json ./integrations/
-COPY --from=builder /monorepo/integrations/dist ./integrations/dist
-COPY --from=builder /monorepo/integrations/src ./integrations/src
-
-# Copy backend (built)
-COPY --from=builder /monorepo/backend/package*.json ./backend/
-COPY --from=builder /monorepo/backend/dist ./backend/dist
-
-# Install production dependencies only
-RUN npm install --workspace=backend --omit=dev --ignore-scripts
-
-WORKDIR /app/backend
+# Drop privileges to the built-in unprivileged `node` user.
+USER node
 
 EXPOSE 8001
 
-CMD ["node", "dist/index.js"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.BACKEND_PORT||8001)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "backend/dist/index.js"]
+
+LABEL org.opencontainers.image.title="cyberintel-backend" \
+      org.opencontainers.image.description="CyberIntel Platform backend service" \
+      org.opencontainers.image.licenses="MIT"

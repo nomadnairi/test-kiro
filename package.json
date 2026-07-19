@@ -26,18 +26,15 @@
   },
   "homepage": "https://github.com/YOUR_USERNAME/cyberintel-platform#readme",
   "workspaces": [
-    "frontend",
+    "shared",
+    "integrations",
     "backend",
     "gateway",
     "orchestrator",
-    "agents",
-    "workers",
-    "integrations",
     "graph-engine",
     "ai-router",
     "telegram-bot",
-    "auth",
-    "shared"
+    "frontend"
   ],
   "scripts": {
     "postinstall": "npm run build:shared",

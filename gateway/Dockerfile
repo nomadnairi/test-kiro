@@ -1,63 +1,76 @@
+# syntax=docker/dockerfile:1.7
 # ============================================================================
-# Gateway Service - Monorepo-Aware Dockerfile
-# ============================================================================
-# This Dockerfile properly handles npm workspace dependencies by copying
-# the entire monorepo structure and using workspace-aware npm commands.
+# Gateway Service — monorepo-aware, multi-stage, production-hardened
+# ----------------------------------------------------------------------------
+# Build context is the monorepo ROOT (see docker-compose.yml). Only the gateway
+# and its `shared` dependency are compiled.
 # ============================================================================
 
-FROM node:20-alpine AS builder
+ARG NODE_VERSION=20-alpine
 
-# Set working directory to monorepo root
+# ---------------------------------------------------------------------------
+# Stage 1: deps — install the workspace dependency graph (cached)
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS deps
 WORKDIR /monorepo
 
-# Copy root package files for workspace configuration
-COPY package*.json ./
+COPY package.json package-lock.json .npmrc ./
+COPY shared/package.json ./shared/
+COPY gateway/package.json ./gateway/
 
-# Copy shared library package.json first (dependency)
-COPY shared/package*.json ./shared/
+# `--ignore-scripts` stops the root postinstall (which builds `shared`) from
+# firing before the source exists; the build stage compiles it explicitly.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts
 
-# Copy gateway package.json
-COPY gateway/package*.json ./gateway/
+# ---------------------------------------------------------------------------
+# Stage 2: build — compile shared then the gateway
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS build
+WORKDIR /monorepo
 
-# Install ALL workspace dependencies from root
-# This resolves @cyberintel/shared correctly
-RUN npm install --workspaces --if-present
+COPY --from=deps /monorepo/node_modules ./node_modules
+COPY package.json package-lock.json ./
 
-# Copy shared library source code
 COPY shared/ ./shared/
-
-# Build shared library first (required by gateway)
 RUN npm run build --workspace=shared
 
-# Copy gateway source code
 COPY gateway/ ./gateway/
-
-# Build gateway service
 RUN npm run build --workspace=gateway
 
-# ============================================================================
-# Production Stage
-# ============================================================================
-FROM node:20-alpine
+RUN --mount=type=cache,target=/root/.npm \
+    npm prune --omit=dev
+
+# ---------------------------------------------------------------------------
+# Stage 3: runtime — minimal, non-root, signal-correct
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS runtime
+
+RUN apk add --no-cache tini
+
+ENV NODE_ENV=production \
+    GATEWAY_PORT=8000
 
 WORKDIR /app
 
-# Copy root package files
-COPY --from=builder /monorepo/package*.json ./
+# The /app layout mirrors /monorepo so workspace symlinks stay valid.
+COPY --from=build /monorepo/node_modules ./node_modules
+COPY --from=build /monorepo/package.json ./package.json
+COPY --from=build /monorepo/shared/package.json ./shared/package.json
+COPY --from=build /monorepo/shared/dist ./shared/dist
+COPY --from=build /monorepo/gateway/package.json ./gateway/package.json
+COPY --from=build /monorepo/gateway/dist ./gateway/dist
 
-# Copy shared library (built)
-COPY --from=builder /monorepo/shared/package*.json ./shared/
-COPY --from=builder /monorepo/shared/dist ./shared/dist
-
-# Copy gateway (built)
-COPY --from=builder /monorepo/gateway/package*.json ./gateway/
-COPY --from=builder /monorepo/gateway/dist ./gateway/dist
-
-# Install production dependencies only
-RUN npm install --workspace=gateway --omit=dev --ignore-scripts
-
-WORKDIR /app/gateway
+USER node
 
 EXPOSE 8000
 
-CMD ["node", "dist/index.js"]
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.GATEWAY_PORT||8000)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
+
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "gateway/dist/index.js"]
+
+LABEL org.opencontainers.image.title="cyberintel-gateway" \
+      org.opencontainers.image.description="CyberIntel Platform API gateway" \
+      org.opencontainers.image.licenses="MIT"

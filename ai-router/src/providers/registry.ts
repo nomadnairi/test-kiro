@@ -22,6 +22,15 @@ export class ProviderRegistry {
     }));
   }
 
+  getAvailableProviders(): Array<{ name: string; healthy: boolean }> {
+    return Array.from(this.providers.values())
+      .filter(p => p.available)
+      .map(p => ({
+        name: p.name,
+        healthy: p.available,
+      }));
+  }
+
   async checkAvailability(): Promise<void> {
     for (const provider of this.providers.values()) {
       try {

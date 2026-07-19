@@ -1,61 +1,76 @@
+# syntax=docker/dockerfile:1.7
 # ============================================================================
-# Telegram Bot Service - Monorepo-Aware Dockerfile
-# ============================================================================
-# This Dockerfile properly handles npm workspace dependencies by copying
-# the entire monorepo structure and using workspace-aware npm commands.
+# Telegram Bot Service — monorepo-aware, multi-stage, production-hardened
+# ----------------------------------------------------------------------------
+# Build context is the monorepo ROOT (see docker-compose.yml). The bot exposes
+# only a small health-check HTTP server (HEALTH_PORT, default 8006).
 # ============================================================================
 
-FROM node:20-alpine AS builder
+ARG NODE_VERSION=20-alpine
 
-# Set working directory to monorepo root
+# ---------------------------------------------------------------------------
+# Stage 1: deps — install the workspace dependency graph (cached)
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS deps
 WORKDIR /monorepo
 
-# Copy root package files for workspace configuration
-COPY package*.json ./
+COPY package.json package-lock.json .npmrc ./
+COPY shared/package.json ./shared/
+COPY telegram-bot/package.json ./telegram-bot/
 
-# Copy shared library package.json first (dependency)
-COPY shared/package*.json ./shared/
+# `--ignore-scripts` stops the root postinstall (which builds `shared`) from
+# firing before the source exists; the build stage compiles it explicitly.
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --ignore-scripts
 
-# Copy telegram-bot package.json
-COPY telegram-bot/package*.json ./telegram-bot/
+# ---------------------------------------------------------------------------
+# Stage 2: build — compile shared then the bot
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS build
+WORKDIR /monorepo
 
-# Install ALL workspace dependencies from root
-# This resolves @cyberintel/shared correctly
-RUN npm install --workspaces --if-present
+COPY --from=deps /monorepo/node_modules ./node_modules
+COPY package.json package-lock.json ./
 
-# Copy shared library source code
 COPY shared/ ./shared/
-
-# Build shared library first (required by telegram-bot)
 RUN npm run build --workspace=shared
 
-# Copy telegram-bot source code
 COPY telegram-bot/ ./telegram-bot/
-
-# Build telegram-bot service
 RUN npm run build --workspace=telegram-bot
 
-# ============================================================================
-# Production Stage
-# ============================================================================
-FROM node:20-alpine
+RUN --mount=type=cache,target=/root/.npm \
+    npm prune --omit=dev
+
+# ---------------------------------------------------------------------------
+# Stage 3: runtime — minimal, non-root, signal-correct
+# ---------------------------------------------------------------------------
+FROM node:${NODE_VERSION} AS runtime
+
+RUN apk add --no-cache tini
+
+ENV NODE_ENV=production \
+    HEALTH_PORT=8006
 
 WORKDIR /app
 
-# Copy root package files
-COPY --from=builder /monorepo/package*.json ./
+# The /app layout mirrors /monorepo so workspace symlinks stay valid.
+COPY --from=build /monorepo/node_modules ./node_modules
+COPY --from=build /monorepo/package.json ./package.json
+COPY --from=build /monorepo/shared/package.json ./shared/package.json
+COPY --from=build /monorepo/shared/dist ./shared/dist
+COPY --from=build /monorepo/telegram-bot/package.json ./telegram-bot/package.json
+COPY --from=build /monorepo/telegram-bot/dist ./telegram-bot/dist
 
-# Copy shared library (built)
-COPY --from=builder /monorepo/shared/package*.json ./shared/
-COPY --from=builder /monorepo/shared/dist ./shared/dist
+USER node
 
-# Copy telegram-bot (built)
-COPY --from=builder /monorepo/telegram-bot/package*.json ./telegram-bot/
-COPY --from=builder /monorepo/telegram-bot/dist ./telegram-bot/dist
+EXPOSE 8006
 
-# Install production dependencies only
-RUN npm install --workspace=telegram-bot --omit=dev --ignore-scripts
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+    CMD node -e "require('http').get('http://127.0.0.1:'+(process.env.HEALTH_PORT||8006)+'/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"
 
-WORKDIR /app/telegram-bot
+ENTRYPOINT ["/sbin/tini", "--"]
+CMD ["node", "telegram-bot/dist/index.js"]
 
-CMD ["node", "dist/index.js"]
+LABEL org.opencontainers.image.title="cyberintel-telegram-bot" \
+      org.opencontainers.image.description="CyberIntel Platform Telegram bot" \
+      org.opencontainers.image.licenses="MIT"

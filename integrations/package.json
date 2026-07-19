@@ -9,12 +9,10 @@
   "dependencies": {
     "@cyberintel/shared": "*",
     "axios": "^1.6.8",
-    "dns": "^0.2.2",
-    "whois": "^2.13.5"
+    "whois": "^2.16.2"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
-    "@types/whois": "^2.13.3",
     "typescript": "^5.4.5"
   }
 }

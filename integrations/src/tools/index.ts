@@ -1,34 +1,55 @@
 // Base classes
+import { BaseTool } from './base-tool';
+import { AmassTool } from './recon/amass';
+import { SubfinderTool } from './recon/subfinder';
+import { AssetfinderTool } from './recon/assetfinder';
+import { NucleiTool } from './recon/nuclei';
+import { HttpxTool } from './recon/httpx';
+import { NaabuTool } from './recon/naabu';
+import { DnsxTool } from './recon/dnsx';
+import { KatanaTool } from './recon/katana';
+import { GauTool } from './recon/gau';
+import { WaybackurlsTool } from './recon/waybackurls';
+import { TheHarvesterTool } from './recon/theharvester';
+import { WhatWebTool } from './recon/whatweb';
+import { WappalyzerTool } from './recon/wappalyzer';
+import { MasscanTool } from './recon/masscan';
+import { PhotonTool } from './recon/photon';
+import { AquatoneTool } from './recon/aquatone';
+import { SherlockTool } from './social/sherlock';
+import { HoleheTool } from './social/holehe';
+import { MaigretTool } from './social/maigret';
+import { SocialscanTool } from './social/socialscan';
+import { TruffleHogTool } from './code/trufflehog';
+import { GitleaksTool } from './code/gitleaks';
+
+// Re-export the public surface so consumers can import from the barrel.
 export { BaseTool, ToolConfig, ToolResult } from './base-tool';
 export { ToolOrchestrator } from './tool-orchestrator';
-
-// Recon tools
-export { AmassT ool } from './recon/amass';
-export { SubfinderTool } from './recon/subfinder';
-export { AssetfinderTool } from './recon/assetfinder';
-export { NucleiTool } from './recon/nuclei';
-export { HttpxTool } from './recon/httpx';
-export { NaabuTool } from './recon/naabu';
-export { DnsxTool } from './recon/dnsx';
-export { KatanaTool } from './recon/katana';
-export { GauTool } from './recon/gau';
-export { WaybackurlsTool } from './recon/waybackurls';
-export { TheHarvesterTool } from './recon/theharvester';
-export { WhatWebTool } from './recon/whatweb';
-export { WappalyzerTool } from './recon/wappalyzer';
-export { MasscanTool } from './recon/masscan';
-export { PhotonTool } from './recon/photon';
-export { AquatoneTool } from './recon/aquatone';
-
-// Social media tools
-export { SherlockTool } from './social/sherlock';
-export { HoleheTool } from './social/holehe';
-export { MaigretTool } from './social/maigret';
-export { SocialscanTool } from './social/socialscan';
-
-// Code analysis tools
-export { TruffleHogTool } from './code/trufflehog';
-export { GitleaksTool } from './code/gitleaks';
+export {
+  AmassTool,
+  SubfinderTool,
+  AssetfinderTool,
+  NucleiTool,
+  HttpxTool,
+  NaabuTool,
+  DnsxTool,
+  KatanaTool,
+  GauTool,
+  WaybackurlsTool,
+  TheHarvesterTool,
+  WhatWebTool,
+  WappalyzerTool,
+  MasscanTool,
+  PhotonTool,
+  AquatoneTool,
+  SherlockTool,
+  HoleheTool,
+  MaigretTool,
+  SocialscanTool,
+  TruffleHogTool,
+  GitleaksTool,
+};
 
 // Tool registry
 export const AVAILABLE_TOOLS = {

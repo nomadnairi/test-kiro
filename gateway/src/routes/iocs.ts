@@ -1,6 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { Pool } from 'pg';
-import { createLogger, IOCType, ThreatLevel } from '@cyberintel/shared';
+import { createLogger, EntityType, ThreatLevel } from '@cyberintel/shared';
 import { z } from 'zod';
 
 const logger = createLogger({ service: 'gateway-iocs' });
@@ -16,7 +16,7 @@ const IOCIdSchema = z.object({
 
 const SearchIOCsSchema = z.object({
   q: z.string().min(1).max(255).optional(),
-  type: z.nativeEnum(IOCType).optional(),
+  type: z.nativeEnum(EntityType).optional(),
   threatLevel: z.nativeEnum(ThreatLevel).optional(),
   source: z.string().min(1).max(100).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),

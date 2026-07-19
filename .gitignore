@@ -11,6 +11,7 @@ ENV/
 dist/
 build/
 *.egg-info/
+*.tsbuildinfo
 
 # Environment
 .env
@@ -39,8 +40,8 @@ yarn-error.log*
 coverage/
 .nyc_output/
 
-# Docker
-.dockerignore
+# Python virtual envs
+.venv/
 
 # Misc
 .cache/

@@ -48,7 +48,7 @@ export default function GraphExplorer() {
       layout: {
         name: 'dagre',
         rankDir: 'TB',
-      },
+      } as any,
     });
 
     return () => {

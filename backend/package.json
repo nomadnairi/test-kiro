@@ -16,11 +16,14 @@
     "pg": "^8.11.5",
     "neo4j-driver": "^5.18.0",
     "ioredis": "^5.4.1",
-    "@elastic/elasticsearch": "^8.13.0"
+    "@elastic/elasticsearch": "^8.13.0",
+    "axios": "^1.6.8",
+    "pdfkit": "^0.15.0"
   },
   "devDependencies": {
     "@types/node": "^20.12.7",
     "@types/pg": "^8.11.5",
+    "@types/pdfkit": "^0.13.4",
     "tsx": "^4.7.2",
     "typescript": "^5.4.5"
   }

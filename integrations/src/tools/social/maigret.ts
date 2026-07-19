@@ -57,14 +57,12 @@ export class MaigretTool extends BaseTool {
       });
 
       return {
-        username: target,
         profiles,
         count: profiles.length,
         sites: profiles.map(p => p.site),
       };
     } catch (e) {
       return {
-        username: target,
         profiles: [],
         count: 0,
         sites: [],

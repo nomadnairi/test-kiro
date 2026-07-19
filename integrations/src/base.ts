@@ -2,6 +2,7 @@ import { createLogger } from '@cyberintel/shared';
 
 export interface IntegrationConfig {
   apiKey?: string;
+  apiSecret?: string;
   baseUrl?: string;
   timeout?: number;
   rateLimit?: number;
@@ -22,7 +23,11 @@ export abstract class BaseIntegration {
 
   constructor(config: IntegrationConfig) {
     this.config = config;
-    this.logger = createLogger({ service: `integration-${this.name}` });
+    // `name` is an abstract property whose value is only assigned by the
+    // subclass field initializer, which runs *after* this constructor. Use
+    // `new.target` (the concrete subclass being instantiated) so the logger
+    // gets a meaningful, defined service name at construction time.
+    this.logger = createLogger({ service: `integration-${new.target.name}` });
   }
 
   protected async handleError(error: any): Promise<IntegrationResult> {

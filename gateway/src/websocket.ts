@@ -95,7 +95,7 @@ export async function wsHandler(connection: SocketStream, request: FastifyReques
       logger.info('WebSocket disconnected', { userId });
     });
 
-    connection.socket.on('error', (error) => {
+    connection.socket.on('error', (error: Error) => {
       logger.error('WebSocket error', error, { userId });
       connections.delete(userId);
     });

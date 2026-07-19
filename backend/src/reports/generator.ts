@@ -40,7 +40,7 @@ export class ReportGenerator {
       const doc = new PDFDocument({ size: 'A4', margin: 50 });
       const chunks: Buffer[] = [];
 
-      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
       doc.on('end', () => resolve(Buffer.concat(chunks)));
       doc.on('error', reject);
 
@@ -82,7 +82,8 @@ export class ReportGenerator {
         const criticalIOCs = data.iocs?.filter((ioc: any) => ioc.threat_level === 'CRITICAL') || [];
         if (criticalIOCs.length > 0) {
           doc.moveDown();
-          doc.fontSize(12).text(`Critical IOCs: ${criticalIOCs.length}`, { color: 'red' });
+          doc.fontSize(12).fillColor('red').text(`Critical IOCs: ${criticalIOCs.length}`);
+          doc.fillColor('black');
         }
         doc.moveDown();
 

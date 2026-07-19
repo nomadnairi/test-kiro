@@ -51,7 +51,6 @@ export class SocialscanTool extends BaseTool {
       });
 
       return {
-        target,
         available,
         unavailable,
         availableCount: available.length,
@@ -59,7 +58,6 @@ export class SocialscanTool extends BaseTool {
       };
     } catch (e) {
       return {
-        target,
         available: [],
         unavailable: [],
         availableCount: 0,

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import axios from 'axios';
-import { Search, Filter } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 export default function IOCViewer() {
   const [search, setSearch] = useState('');

@@ -46,7 +46,7 @@ export class AIRouter {
     }
   }
 
-  async chatStream(request: ChatRequest): AsyncGenerator<any> {
+  async chatStream(request: ChatRequest): Promise<AsyncGenerator<any>> {
     const providerName = request.provider || this.defaultProvider;
     const provider = this.registry.getProvider(providerName);
 

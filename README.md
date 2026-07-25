@@ -13,6 +13,33 @@
 
 ---
 
+## 📦 What's in this repository
+
+This repo hosts **two projects**:
+
+1. **CyberIntel Platform** — the TypeScript microservice platform documented
+   below (gateway · backend · orchestrator · ai-router · graph-engine ·
+   frontend · telegram-bot · workers).
+2. **[DeathBot](deathbot/)** — a standalone **Python / aiogram 3** Telegram bot
+   for OSINT, recon and AI, with a clean layered architecture
+   (Handlers → Services → Repositories → SQLite). Fully **button-driven**
+   (no slash commands), **59 tools** across 8 categories, **10 AI providers**,
+   **8 export formats** (PDF · DOCX · Obsidian · Markdown · HTML · CSV · JSON ·
+   TXT). See **[deathbot/README.md](deathbot/README.md)**.
+
+### ✅ Recent updates
+
+- **Docker builds fixed & hardened.** Every service image now builds cleanly.
+  Fixed the npm-workspace / dependency / TypeScript errors that broke
+  `npm ci` + compile, added a root `.dockerignore`, and rewrote all Dockerfiles
+  as multi-stage, non-root, health-checked builds backed by a committed
+  `package-lock.json`. (`npm run build --workspaces` is green; base-image pulls
+  require registry access.)
+- **DeathBot added.** New `deathbot/` subproject — verified offline with
+  `python deathbot/smoke_test.py` (all checks green).
+
+---
+
 ## ✨ Key Features
 
 🤖 **Autonomous AI Reconnaissance** - AI-powered OSINT collection with 20+ tool integrations  

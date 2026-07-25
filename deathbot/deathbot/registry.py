@@ -7,9 +7,17 @@ one entry — no new handler, no new command.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
-from html import escape
+from html import escape, unescape
 from typing import TYPE_CHECKING, Awaitable, Callable
+
+_TAG_RE = re.compile(r"<[^>]+>")
+
+
+def strip_html(text: str) -> str:
+    """Turn the HTML we send to Telegram back into plain text for file exports."""
+    return unescape(_TAG_RE.sub("", text))
 
 if TYPE_CHECKING:
     from .container import Container
@@ -182,18 +190,36 @@ async def _set_provider(c: "Container", uid: int, arg: str) -> Result:
     return Result(f"✅ Default AI provider set to {escape(arg.strip().lower())}")
 
 
-def _export(fmt: str):
-    async def _run(c: "Container", uid: int, _: str) -> Result:
+async def load_last_report(c: "Container", uid: int) -> dict | None:
+    raw = await c.repos.cache.get(f"report:{uid}")
+    return json.loads(raw) if raw else None
+
+
+async def save_last_report(c: "Container", uid: int, report: dict) -> None:
+    await c.repos.cache.set(f"report:{uid}", json.dumps(report), ttl_seconds=86400)
+
+
+async def build_export(c: "Container", uid: int, fmt: str) -> Result:
+    """Render the user's last tool result (or their notes/todos) into a file."""
+    report = await load_last_report(c, uid)
+    if report is None:
         notes = await c.notes.list(uid)
         todos = await c.todos.list(uid)
-        report = c.report.build("DeathBot export", {
+        report = c.report.build("DeathBot workspace", {
             "notes": "\n".join(f"- {n['title']}: {n['body']}" for n in notes) or "none",
             "todos": "\n".join(f"[{'x' if t['done'] else ' '}] {t['text']}" for t in todos) or "none",
         })
-        blob = c.export.render(report, fmt)
-        ext = c.export.extension(fmt)
-        return Result(f"📤 Export ready ({len(notes)} notes, {len(todos)} todos).",
-                      filename=f"deathbot-export.{ext}", file_bytes=blob)
+        report["tags"] = ["deathbot", "workspace"]
+    blob = c.export.render(report, fmt)
+    ext = c.export.extension(fmt)
+    safe = re.sub(r"[^a-z0-9]+", "-", report["title"].lower()).strip("-")[:40] or "report"
+    return Result(f"📤 <b>{escape(report['title'])}</b> → {fmt.upper()}",
+                  filename=f"{safe}.{ext}", file_bytes=blob)
+
+
+def _export(fmt: str):
+    async def _run(c: "Container", uid: int, _: str) -> Result:
+        return await build_export(c, uid, fmt)
     return _run
 
 

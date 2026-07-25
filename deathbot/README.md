@@ -98,7 +98,10 @@ Menu → **OSINT · Pentest · AI · Agents · Notes & Todo · Export · Setting
   AnythingLLM, Claude (Anthropic), Gemini, Ollama — with graceful fallback.
 - **Agents (8):** General, OSINT, Recon, Report, Threat Intel, Code, Research,
   Planner.
-- **Export (6):** JSON, Markdown, HTML, CSV, PDF (reportlab), DOCX (python-docx).
+- **Export (8):** PDF (reportlab), DOCX (python-docx), Markdown, **Obsidian**
+  (YAML frontmatter + tags + callouts), HTML, CSV, JSON, TXT. Every tool result
+  gets a **📤 Export / Save as…** button — pick a format and the bot sends the
+  file. The Export menu re-exports your last result (or your notes/todos).
 
 Tools that need an API key (Shodan, HIBP, AbuseIPDB) or an external binary
 (subfinder, nuclei…) degrade with a clear "needs key / not installed" message

@@ -12,9 +12,11 @@ from aiogram.filters import Command, CommandStart
 from aiogram.fsm.context import FSMContext
 from aiogram.types import BufferedInputFile, CallbackQuery, Message
 
+from datetime import datetime, timezone
+
 from ..container import Container
-from ..keyboards import cancel_menu, category_menu, main_menu, result_menu
-from ..registry import Result, Tool, get_tool
+from ..keyboards import cancel_menu, category_menu, export_menu, main_menu, result_menu
+from ..registry import Result, Tool, build_export, get_tool, save_last_report, strip_html
 from ..states import AIChat, ApiKeyFlow, ToolFlow
 from ..util import truncate
 
@@ -78,6 +80,31 @@ async def cb_cancel(cb: CallbackQuery, container: Container, state: FSMContext,
     await state.clear()
     await cb.message.edit_text(_WELCOME, reply_markup=main_menu(_visible(container, role)))
     await cb.answer("Cancelled")
+
+
+@router.callback_query(F.data == "exp:pick")
+async def cb_export_pick(cb: CallbackQuery, container: Container) -> None:
+    formats = container.export.available_formats()
+    await cb.message.answer(
+        "📤 <b>Export the last result</b>\nChoose a format:",
+        reply_markup=export_menu(formats, container.export.LABELS),
+    )
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("exp:fmt:"))
+async def cb_export_fmt(cb: CallbackQuery, container: Container) -> None:
+    fmt = cb.data.split(":", 2)[2]
+    await cb.answer("Rendering…")
+    try:
+        result = await build_export(container, cb.from_user.id, fmt)
+    except Exception as exc:  # noqa: BLE001
+        await cb.message.answer(f"⚠️ Export failed: {exc}")
+        return
+    await cb.message.answer_document(
+        BufferedInputFile(result.file_bytes, filename=result.filename),
+        caption=result.text,
+    )
 
 
 @router.callback_query(F.data.startswith("cat:"))
@@ -164,7 +191,14 @@ async def on_photo(message: Message, container: Container, state: FSMContext) ->
     await message.bot.download(file_id, destination=buf)
     result = container.osint.exif(buf.getvalue())
     from ..registry import human
-    await message.answer(human("Metadata / EXIF", result), reply_markup=result_menu(category))
+    text = human("Metadata / EXIF", result)
+    await save_last_report(container, message.from_user.id, {
+        "title": "Metadata / EXIF",
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "tags": ["deathbot", "osint", "exif"],
+        "sections": {"EXIF": strip_html(text)},
+    })
+    await message.answer(text, reply_markup=result_menu(category, exportable=True))
 
 
 @router.message(AIChat.chatting, F.text & ~F.text.startswith("/"))
@@ -222,4 +256,12 @@ async def _run_and_reply(message: Message, container: Container, uid: int,
         )
         await message.answer("Done.", reply_markup=result_menu(tool.category))
     else:
-        await message.answer(truncate(result.text), reply_markup=result_menu(tool.category))
+        # Remember this result so the user can re-export it in any format.
+        await save_last_report(container, uid, {
+            "title": f"{tool.label}{f': {arg}' if arg else ''}",
+            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            "tags": ["deathbot", tool.category],
+            "sections": {tool.label: strip_html(result.text)},
+        })
+        await message.answer(truncate(result.text),
+                             reply_markup=result_menu(tool.category, exportable=True))

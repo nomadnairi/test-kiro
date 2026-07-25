@@ -36,8 +36,21 @@ def cancel_menu() -> InlineKeyboardMarkup:
     ])
 
 
-def result_menu(category: str) -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(inline_keyboard=[[
+def result_menu(category: str, exportable: bool = False) -> InlineKeyboardMarkup:
+    rows = []
+    if exportable:
+        rows.append([InlineKeyboardButton(text="📤 Export / Save as…", callback_data="exp:pick")])
+    rows.append([
         InlineKeyboardButton(text="⬅️ Back", callback_data=f"cat:{category}"),
         InlineKeyboardButton(text="🏠 Menu", callback_data="nav:main"),
-    ]])
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
+
+
+def export_menu(formats: list[str], labels: dict[str, str]) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for fmt in formats:
+        kb.button(text=labels.get(fmt, fmt.upper()), callback_data=f"exp:fmt:{fmt}")
+    kb.adjust(2)
+    kb.row(InlineKeyboardButton(text="⬅️ Menu", callback_data="nav:main"))
+    return kb.as_markup()

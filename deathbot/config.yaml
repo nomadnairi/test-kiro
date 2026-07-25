@@ -1,0 +1,46 @@
+# ============================================================================
+# DeathBot static configuration (non-secret). Secrets live in .env.
+# ============================================================================
+
+bot:
+  name: DeathBot
+  parse_mode: HTML
+  # Users must be whitelisted (or invited) before any handler runs.
+  whitelist_only: true
+  maintenance: false
+
+ratelimit:
+  # Sliding-window per-user limit applied by the RateLimit middleware.
+  window_seconds: 10
+  max_requests: 20
+
+ai:
+  default_provider: openrouter
+  default_model: openai/gpt-4o-mini
+  request_timeout: 60
+  max_history: 20
+  # Priority order used by the router when a provider is unavailable.
+  fallback_order:
+    - openrouter
+    - openai
+    - ollama
+
+roles:
+  # Permission matrix: role -> list of module scopes it may use.
+  # "*" grants every module. owner always implicitly has "*".
+  owner: ["*"]
+  admin:
+    ["profile", "notes", "todo", "ai", "osint", "geoint", "recon", "dns",
+     "web", "network", "crypto", "image", "reports", "tools", "admin", "audit"]
+  analyst:
+    ["profile", "notes", "todo", "ai", "osint", "geoint", "recon", "dns",
+     "web", "network", "crypto", "image", "reports", "tools"]
+  user: ["profile", "notes", "todo", "ai"]
+  guest: ["profile"]
+
+modules:
+  # Feature flags — a disabled module is hidden and its handlers refuse.
+  osint: true
+  pentest: true
+  ai: true
+  reports: true

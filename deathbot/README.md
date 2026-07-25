@@ -72,22 +72,35 @@ python smoke_test.py
   encrypted, bound to the user id via the AEAD associated data.
 - **Audit log** — privileged actions are recorded in `audit_logs`.
 
-## Command surface
+## Interface — buttons, not commands
 
-`/start /help /menu /profile` · `/note /notes /delnote` · `/todo /todos /done`
-· `/ai /chat /reset /providers` · `/whois /dns` · `/scan` ·
-`/settings /setprovider /addkey /keys` · `/users /grant /ban /unban /audit /tools`
+There are **no feature commands**. Everything is reached by tapping inline
+buttons. Only three commands exist to bootstrap/reset the UI: `/start`,
+`/menu`, `/cancel`. Tapping a tool that needs input puts the chat into a short
+FSM prompt ("Send a domain…"), then returns the result with Back / Menu buttons.
 
-Planned/scaffolded modules (respond as "planned"): `/image /geoint /crypto
-/network /web /recon /malware /sandbox /reports`.
+The whole button surface is generated from a single **tool registry**
+(`deathbot/registry.py`) — one entry per tool, ~59 tools across 8 categories.
+Adding a tool is one dataclass entry; no new handler, no new command.
 
-## What's implemented vs scaffolded
+Menu → **OSINT · Pentest · AI · Agents · Notes & Todo · Export · Settings · Admin**
 
-**Working end-to-end:** config, SQLite + all repositories, RBAC + whitelist +
-audit, notes/todo CRUD, encrypted API keys, AI router with graceful fallback,
-OSINT whois/dns, port scanning (nmap or asyncio fallback), export
-(md/json/html/csv), tool engine, background cache cleanup.
+## Tools (all implemented)
 
-**Scaffolded (structure in place, integrations pending):** the extended OSINT
-sources (Shodan/HIBP/VirusTotal…), full pentest toolchain (amass/nuclei/httpx…),
-PDF/DOCX export (optional deps), and the roadmap's remaining handler modules.
+- **OSINT (13):** WHOIS, DNS, Subdomains (crt.sh), Username search, Email
+  (Gravatar + HIBP), Phone, GeoIP (ip-api), Shodan, Threat Intel
+  (URLhaus + AbuseIPDB), IOC classify, Reverse-image search, Metadata/EXIF
+  (Pillow), Darknet (safe stub).
+- **Pentest (14):** Port scan (nmap/asyncio), SSL scan (native), Tech detect,
+  plus CLI wrappers run through the tool engine: subfinder, amass, httpx,
+  naabu, nuclei, katana, masscan, rustscan, gobuster, ffuf, feroxbuster.
+- **AI providers (10):** OpenAI, OpenRouter, Groq, DeepSeek, Grok, LM Studio,
+  AnythingLLM, Claude (Anthropic), Gemini, Ollama — with graceful fallback.
+- **Agents (8):** General, OSINT, Recon, Report, Threat Intel, Code, Research,
+  Planner.
+- **Export (6):** JSON, Markdown, HTML, CSV, PDF (reportlab), DOCX (python-docx).
+
+Tools that need an API key (Shodan, HIBP, AbuseIPDB) or an external binary
+(subfinder, nuclei…) degrade with a clear "needs key / not installed" message
+and become fully functional once the key/binary is present. Network-dependent
+lookups require the host to have outbound access to the relevant services.

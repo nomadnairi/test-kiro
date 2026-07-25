@@ -8,12 +8,9 @@ class AIChat(StatesGroup):
     chatting = State()
 
 
-class NoteFlow(StatesGroup):
-    waiting_text = State()
-
-
-class TodoFlow(StatesGroup):
-    waiting_text = State()
+class ToolFlow(StatesGroup):
+    waiting_input = State()   # generic tool text input (data: tool_id, category)
+    waiting_photo = State()   # EXIF: waiting for an image
 
 
 class ApiKeyFlow(StatesGroup):

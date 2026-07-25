@@ -32,6 +32,9 @@ class AIProviderKeys:
     groq: str = ""
     gemini: str = ""
     deepseek: str = ""
+    grok: str = ""
+    anythingllm: str = ""
+    anythingllm_base_url: str = "http://localhost:3001/api/v1/openai"
     ollama_base_url: str = "http://localhost:11434"
     lmstudio_base_url: str = "http://localhost:1234/v1"
 
@@ -108,6 +111,11 @@ def load_settings(
         groq=os.getenv("GROQ_API_KEY", ""),
         gemini=os.getenv("GEMINI_API_KEY", ""),
         deepseek=os.getenv("DEEPSEEK_API_KEY", ""),
+        grok=os.getenv("GROK_API_KEY", "") or os.getenv("XAI_API_KEY", ""),
+        anythingllm=os.getenv("ANYTHINGLLM_API_KEY", ""),
+        anythingllm_base_url=os.getenv(
+            "ANYTHINGLLM_BASE_URL", "http://localhost:3001/api/v1/openai"
+        ),
         ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
         lmstudio_base_url=os.getenv("LMSTUDIO_BASE_URL", "http://localhost:1234/v1"),
     )

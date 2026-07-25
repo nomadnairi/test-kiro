@@ -1,40 +1,14 @@
-"""Handler layer — aggregates every feature router into one."""
+"""Handler layer — a single button-driven menu router (no feature commands)."""
 from __future__ import annotations
 
 from aiogram import Router
 
-from . import (
-    admin,
-    ai,
-    audit,
-    notes,
-    osint,
-    pentest,
-    profile,
-    settings,
-    start,
-    stubs,
-    todo,
-    tools,
-)
+from . import menu
 
 
 def build_root_router() -> Router:
     root = Router(name="root")
-    root.include_routers(
-        start.router,
-        profile.router,
-        settings.router,
-        notes.router,
-        todo.router,
-        ai.router,
-        osint.router,
-        pentest.router,
-        tools.router,
-        admin.router,
-        audit.router,
-        stubs.router,
-    )
+    root.include_router(menu.router)
     return root
 
 

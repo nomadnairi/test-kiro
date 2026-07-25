@@ -10,8 +10,10 @@ from ..config import Settings
 from ..logging_setup import get_logger
 from .providers import (
     AIProvider,
+    AnthropicProvider,
     ChatMessage,
     ChatResponse,
+    GeminiProvider,
     OllamaProvider,
     OpenAICompatibleProvider,
     ProviderError,
@@ -52,6 +54,27 @@ class AIRouter:
         self._providers["deepseek"] = OpenAICompatibleProvider(
             api_key=k.deepseek, base_url="https://api.deepseek.com/v1",
             model="deepseek-chat", timeout=self._timeout,
+        )
+        self._providers["grok"] = OpenAICompatibleProvider(
+            api_key=k.grok, base_url="https://api.x.ai/v1",
+            model="grok-2-latest", timeout=self._timeout,
+        )
+        self._providers["lmstudio"] = OpenAICompatibleProvider(
+            # LM Studio is a local OpenAI-compatible server; no real key needed.
+            api_key=k.lmstudio_base_url and "lm-studio", base_url=k.lmstudio_base_url,
+            model="local-model", timeout=max(self._timeout, 120),
+        )
+        self._providers["anythingllm"] = OpenAICompatibleProvider(
+            api_key=k.anythingllm, base_url=k.anythingllm_base_url,
+            model="default", timeout=self._timeout,
+        )
+        self._providers["claude"] = AnthropicProvider(
+            api_key=k.anthropic, model=self.settings.ai.get("claude_model",
+                                                            "claude-3-5-sonnet-latest"),
+            timeout=self._timeout,
+        )
+        self._providers["gemini"] = GeminiProvider(
+            api_key=k.gemini, model="gemini-1.5-flash", timeout=self._timeout,
         )
         self._providers["ollama"] = OllamaProvider(
             base_url=k.ollama_base_url, timeout=max(self._timeout, 120)

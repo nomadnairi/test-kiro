@@ -37,10 +37,15 @@ class ExportService:
             "md": self._markdown,
             "html": self._html,
             "csv": self._csv,
+            "pdf": self._pdf,
+            "docx": self._docx,
         }.get(fmt)
         if renderer is None:
             raise ValueError(f"Unsupported export format: {fmt}")
         return renderer(report)
+
+    def extension(self, fmt: str) -> str:
+        return {"markdown": "md"}.get(fmt.lower(), fmt.lower())
 
     # -- renderers ----------------------------------------------------------
     def _json(self, report: dict) -> bytes:
@@ -70,3 +75,40 @@ class ExportService:
         for section, body in report.get("sections", {}).items():
             writer.writerow([section, body if isinstance(body, str) else json.dumps(body)])
         return buf.getvalue().encode()
+
+    def _pdf(self, report: dict) -> bytes:
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet
+            from reportlab.platypus import Paragraph, Preformatted, SimpleDocTemplate, Spacer
+        except ImportError as exc:  # pragma: no cover
+            raise ValueError("PDF export needs `reportlab` (pip install reportlab)") from exc
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(buf, pagesize=A4, title=report.get("title", "DeathBot Report"))
+        styles = getSampleStyleSheet()
+        flow = [Paragraph(str(report.get("title", "DeathBot Report")), styles["Title"]),
+                Spacer(1, 12)]
+        for section, body in report.get("sections", {}).items():
+            text = body if isinstance(body, str) else json.dumps(body, indent=2)
+            flow.append(Paragraph(str(section), styles["Heading2"]))
+            flow.append(Preformatted(text, styles["Code"]))
+            flow.append(Spacer(1, 10))
+        doc.build(flow)
+        return buf.getvalue()
+
+    def _docx(self, report: dict) -> bytes:
+        try:
+            from docx import Document
+        except ImportError as exc:  # pragma: no cover
+            raise ValueError("DOCX export needs `python-docx` (pip install python-docx)") from exc
+
+        document = Document()
+        document.add_heading(str(report.get("title", "DeathBot Report")), level=0)
+        for section, body in report.get("sections", {}).items():
+            text = body if isinstance(body, str) else json.dumps(body, indent=2)
+            document.add_heading(str(section), level=2)
+            document.add_paragraph(text)
+        buf = io.BytesIO()
+        document.save(buf)
+        return buf.getvalue()

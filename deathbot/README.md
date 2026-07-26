@@ -1,67 +1,37 @@
-# DeathBot
+<h1 align="center">💀 DeathBot</h1>
 
-A **button-driven** aiogram 3 Telegram assistant for OSINT, recon and AI.
-There are no feature commands — the whole UI is inline buttons generated from a
-single **tool registry** (59 tools / 8 categories) over a strict layered core
-(Handlers → Services → Repositories → SQLite).
+<p align="center">
+  <b>A button-driven Telegram bot for OSINT, recon & AI.</b><br>
+  Tap a menu — no commands to memorize. 59 tools, 10 AI providers, 8 export formats.
+</p>
 
-> This is a self-contained Python project living in `deathbot/`, independent of
-> the TypeScript CyberIntel platform in the rest of the repository.
+<p align="center">
+  <img alt="Python" src="https://img.shields.io/badge/python-3.11+-3776AB?logo=python&logoColor=white">
+  <img alt="aiogram" src="https://img.shields.io/badge/aiogram-3-2CA5E0?logo=telegram&logoColor=white">
+  <img alt="SQLite" src="https://img.shields.io/badge/storage-SQLite-003B57?logo=sqlite&logoColor=white">
+  <img alt="License" src="https://img.shields.io/badge/license-MIT-green">
+</p>
 
-## Architecture
+---
 
-```
-Telegram
-   │  inline buttons only  (commands: just /start · /menu · /cancel)
-   ▼
-Handlers  handlers/menu.py ── Middlewares: logging · maintenance · auth · rate-limit
-   │       keyboards.py · states/ (FSM) · registry.py  ← 59 tools / 8 categories
-   ▼
-Services  AccessControl · User · Notes · Todo · ApiKey · AI · OSINT · Pentest ·
-   │       Report · Export · Settings · Notification
-   ▼
-Repositories  User · Access · Invite · Audit · ApiKey · Note · Todo ·
-   │           Settings · History · Cache
-   ▼
-SQLite (aiosqlite)
+## What is it
 
-   ├─ AI Router     OpenAI · OpenRouter · Groq · DeepSeek · Grok · LM Studio ·
-   │                AnythingLLM · Claude · Gemini · Ollama   (graceful fallback)
-   ├─ Tool Engine   async queue · workers · timeout · retry
-   ├─ Agents        general · osint · recon · report · threatintel · code ·
-   │                research · planner
-   └─ Modules       modules/osint/ (13) · modules/pentest/ (14)
-```
+DeathBot turns a Telegram chat into an OSINT / reconnaissance / AI console.
+Everything is driven by **inline buttons** — you tap a category, tap a tool, and
+the bot asks for the one thing it needs (a domain, an IP, a question) and returns
+a clean result you can **export to PDF, Obsidian, DOCX and more**.
 
-### Request flow
+Built on a strict layered architecture (Handlers → Services → Repositories →
+SQLite) with role-based access, encrypted API keys and an audit log.
 
-`tap category → tap tool → (FSM asks for input) → service → repository / module
-→ formatted result → 📤 Export / Save as…`  Adding a capability is **one entry
-in `registry.py`** — no new handler, no new command.
+## Highlights
 
-## Layout
-
-| Path | Responsibility |
-|------|----------------|
-| `deathbot/registry.py` | **single source of truth** — every tool is one entry; menus and the input dispatch are generated from it |
-| `deathbot/keyboards.py` | inline-keyboard builders (main menu, category submenus, export-format picker) |
-| `deathbot/handlers/menu.py` | all button navigation + the FSM tool-runner (chat / text / photo-EXIF / API-key flows) |
-| `deathbot/middlewares/` | logging · maintenance · auth · rate-limit |
-| `deathbot/states/` · `filters/` | FSM state groups · role filters |
-| `deathbot/services/` | business logic (12 services) |
-| `deathbot/repositories/` | all SQL, one class per table group (10 repos) |
-| `deathbot/modules/osint/` | 13 OSINT tools (whois, dns, subdomains, username, email, phone, geoip, shodan, threatintel, ioc, metadata/exif, reverse-image, darknet) |
-| `deathbot/modules/pentest/` | 14 pentest tools (portscan, sslscan, techdetect + `external.py` CLI wrappers) |
-| `deathbot/ai/` | provider abstraction + router (10 providers) |
-| `deathbot/agents/` | 8 prompt-specialised AI agents |
-| `deathbot/tools/engine.py` | async task-execution engine (queue · workers · retry) |
-| `deathbot/services/export.py` | 8 export renderers (PDF · DOCX · Obsidian · MD · HTML · CSV · JSON · TXT) |
-| `deathbot/core/` | AES-256-GCM crypto, role model |
-| `deathbot/db/` | SQLite connection + schema |
-| `deathbot/tasks/` | background jobs (cache cleanup) |
-| `deathbot/config.py` · `util.py` | env + `config.yaml` loader · subprocess/format helpers |
-| `deathbot/container.py` | composition root wiring every layer |
-| `deathbot/bot.py` · `__main__.py` | Bot/Dispatcher assembly · `python -m deathbot` entrypoint |
+- 🧭 **No commands** — the whole UI is buttons. Only `/start`, `/menu`, `/cancel` exist.
+- 🧰 **59 tools** in 8 categories, all generated from one registry.
+- 🤖 **10 AI providers** with automatic fallback.
+- 📤 **8 export formats** — any result → a file, in one tap.
+- 🔐 **Secure by default** — whitelist, roles, AES-256-GCM key storage, audit trail.
+- 🧪 **Verifiable** — `smoke_test.py` checks every layer offline (no token needed).
 
 ## Quick start
 
@@ -70,59 +40,92 @@ cd deathbot
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env          # set BOT_TOKEN and OWNER_ID
-python -m deathbot            # start polling
+cp .env.example .env        # set BOT_TOKEN and OWNER_ID (your Telegram id)
+python -m deathbot          # start the bot
 ```
 
-Run the offline verification (no Telegram token needed):
+Send `/start` in Telegram → the menu appears → tap away.
+Verify the build without a token: `python smoke_test.py`.
 
-```bash
-python smoke_test.py
+## How it works
+
+```
+tap category → tap tool → bot asks for input → result → 📤 Export / Save as…
 ```
 
-## Security model
+Adding a new tool is **one entry in `registry.py`** — the menus and input handling
+are generated automatically. No new command, no new handler.
 
-- **Whitelist gate** — new users are *pending* until an admin activates them
-  (🛡 Admin → Grant); the owner (`OWNER_ID`) is always active and bypasses
-  every check.
-- **Role matrix** (`config.yaml → roles`) maps roles to allowed module scopes;
-  menu buttons are filtered by role and every tap is access-checked before it runs.
-- **Encrypted API keys** — per-user provider keys are stored AES-256-GCM
-  encrypted, bound to the user id via the AEAD associated data.
-- **Audit log** — privileged actions are recorded in `audit_logs`.
+## Tools
 
-## Interface — buttons, not commands
+### 🔎 OSINT (13)
+| Tool | Does | Needs |
+|---|---|---|
+| WHOIS · DNS · Subdomains | domain intel (crt.sh for subs) | — |
+| Username · Email · Phone | account / contact footprint | HIBP key for breaches |
+| GeoIP · Shodan | IP location & exposure | Shodan key |
+| Threat Intel · IOC | reputation & indicator triage | AbuseIPDB key |
+| Reverse Image · EXIF · Darknet | image OSINT & metadata | — |
 
-There are **no feature commands**. Everything is reached by tapping inline
-buttons. Only three commands exist to bootstrap/reset the UI: `/start`,
-`/menu`, `/cancel`. Tapping a tool that needs input puts the chat into a short
-FSM prompt ("Send a domain…"), then returns the result with Back / Menu buttons.
+### 🛠 Pentest (14) · *authorised targets only*
+| Native (always work) | External CLIs (run if installed) |
+|---|---|
+| Port Scan · SSL Scan · Tech Detect | subfinder · amass · httpx · naabu · nuclei · katana · masscan · rustscan · gobuster · ffuf · feroxbuster |
 
-The whole button surface is generated from a single **tool registry**
-(`deathbot/registry.py`) — one entry per tool, ~59 tools across 8 categories.
-Adding a tool is one dataclass entry; no new handler, no new command.
+### 🤖 AI (10 providers)
+`OpenAI` · `Claude` · `Gemini` · `OpenRouter` · `Groq` · `DeepSeek` · `Grok` ·
+`Ollama` · `LM Studio` · `AnythingLLM` — the router tries your default, then
+falls back to whatever is configured. One-shot **Ask** or a **Chat** mode.
 
-Menu → **OSINT · Pentest · AI · Agents · Notes & Todo · Export · Settings · Admin**
+### 🧠 Agents (8)
+`General` · `OSINT` · `Recon` · `Report` · `Threat Intel` · `Code` · `Research` · `Planner`
 
-## Tools (all implemented)
+### 📤 Export (8)
+`PDF` · `DOCX` · `Obsidian` (YAML frontmatter + tags) · `Markdown` · `HTML` ·
+`CSV` · `JSON` · `TXT`. Every result gets a **📤 Export / Save as…** button.
 
-- **OSINT (13):** WHOIS, DNS, Subdomains (crt.sh), Username search, Email
-  (Gravatar + HIBP), Phone, GeoIP (ip-api), Shodan, Threat Intel
-  (URLhaus + AbuseIPDB), IOC classify, Reverse-image search, Metadata/EXIF
-  (Pillow), Darknet (safe stub).
-- **Pentest (14):** Port scan (nmap/asyncio), SSL scan (native), Tech detect,
-  plus CLI wrappers run through the tool engine: subfinder, amass, httpx,
-  naabu, nuclei, katana, masscan, rustscan, gobuster, ffuf, feroxbuster.
-- **AI providers (10):** OpenAI, OpenRouter, Groq, DeepSeek, Grok, LM Studio,
-  AnythingLLM, Claude (Anthropic), Gemini, Ollama — with graceful fallback.
-- **Agents (8):** General, OSINT, Recon, Report, Threat Intel, Code, Research,
-  Planner.
-- **Export (8):** PDF (reportlab), DOCX (python-docx), Markdown, **Obsidian**
-  (YAML frontmatter + tags + callouts), HTML, CSV, JSON, TXT. Every tool result
-  gets a **📤 Export / Save as…** button — pick a format and the bot sends the
-  file. The Export menu re-exports your last result (or your notes/todos).
+> Tools needing a key or an external binary say so clearly and start working the
+> moment it's present. Network lookups need the host to have internet access.
 
-Tools that need an API key (Shodan, HIBP, AbuseIPDB) or an external binary
-(subfinder, nuclei…) degrade with a clear "needs key / not installed" message
-and become fully functional once the key/binary is present. Network-dependent
-lookups require the host to have outbound access to the relevant services.
+## Security
+
+| Layer | What it does |
+|---|---|
+| **Whitelist** | new users are *pending* until an admin activates them (🛡 Admin → Grant) |
+| **Roles** | `owner · admin · analyst · user · guest` — buttons are filtered per role, every tap is access-checked |
+| **Encrypted keys** | per-user API keys stored AES-256-GCM, bound to the user id |
+| **Audit log** | every privileged action is recorded |
+| **Owner override** | `OWNER_ID` is always active and bypasses every gate |
+
+## Project structure
+
+```
+deathbot/
+├─ registry.py        ← every tool = one entry (menus generated from it)
+├─ keyboards.py       inline-keyboard builders
+├─ handlers/menu.py   all button navigation + FSM input runner
+├─ services/          business logic (12 services)
+├─ repositories/      all SQL, one class per table (10)
+├─ modules/
+│  ├─ osint/          13 OSINT tools
+│  └─ pentest/        14 pentest tools
+├─ ai/                provider abstraction + router (10 providers)
+├─ agents/            8 AI agents
+├─ tools/engine.py    async task queue (workers · timeout · retry)
+├─ middlewares/       logging · maintenance · auth · rate-limit
+├─ core/              AES-256-GCM crypto · roles
+├─ db/                SQLite connection + schema
+├─ container.py       composition root (wires every layer)
+└─ bot.py             Bot/Dispatcher · `python -m deathbot`
+```
+
+## Configuration
+
+- **`.env`** — secrets: `BOT_TOKEN`, `OWNER_ID`, and optional provider/OSINT keys
+  (OpenAI, Claude, Shodan, HIBP…). Copy from `.env.example`.
+- **`config.yaml`** — non-secret settings: rate limits, the role→module matrix,
+  default AI provider, feature flags.
+
+---
+
+<p align="center"><sub>MIT · for authorised security research and OSINT only.</sub></p>

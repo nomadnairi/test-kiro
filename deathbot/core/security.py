@@ -56,6 +56,7 @@ class Crypto:
         if path.exists():
             return path.read_bytes()[:_KEY_BYTES].ljust(_KEY_BYTES, b"\0")
         key = AESGCM.generate_key(bit_length=256)
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(key)
         try:
             os.chmod(path, 0o600)

@@ -59,7 +59,7 @@ class Container:
     def build(cls, settings: Settings) -> "Container":
         db = Database(settings.absolute_db_path())
         repos = Repositories.build(db)
-        crypto = Crypto.from_settings(settings.secret_key)
+        crypto = Crypto.from_settings(settings.secret_key, settings.absolute_key_path())
         ai_router = AIRouter(settings)
 
         return cls(

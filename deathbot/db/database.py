@@ -32,6 +32,9 @@ class Database:
     async def connect(self) -> None:
         if self._conn is not None:
             return
+        # Make sure the directory exists — in a container the DB lives on a
+        # mounted volume that may be empty on first start.
+        Path(self._path).parent.mkdir(parents=True, exist_ok=True)
         self._conn = await aiosqlite.connect(self._path)
         self._conn.row_factory = sqlite3.Row
         await self._conn.execute("PRAGMA foreign_keys = ON")

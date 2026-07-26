@@ -1,0 +1,35 @@
+services:
+  deathbot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: deathbot:latest
+    container_name: deathbot
+    restart: unless-stopped
+
+    # Secrets come from .env (copy .env.example → .env and fill it in).
+    env_file:
+      - .env
+
+    # SQLite database + AES master key. Losing this volume means losing every
+    # stored API key, so keep it around.
+    volumes:
+      - deathbot-data:/data
+
+    # Hardening: the app only ever writes to /data.
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  deathbot-data:

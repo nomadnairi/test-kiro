@@ -35,11 +35,26 @@ SQLite) with role-based access, encrypted API keys and an audit log.
 
 ## Quick start
 
+### 🐳 Docker (recommended)
+
+```bash
+cp .env.example .env        # set BOT_TOKEN and OWNER_ID (your Telegram id)
+docker compose up -d --build
+docker compose logs -f
+```
+
+The image ships `whois` and `nmap`, so those tools work out of the box. It runs
+as a non-root user with a read-only filesystem; all state (SQLite DB + the AES
+master key) lives in the `deathbot-data` volume — **keep that volume**, losing
+it makes every stored API key undecryptable.
+
+### 🐍 From source
+
 ```bash
 python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env        # set BOT_TOKEN and OWNER_ID (your Telegram id)
+cp .env.example .env        # set BOT_TOKEN and OWNER_ID
 python -m deathbot          # start the bot
 ```
 

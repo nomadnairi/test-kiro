@@ -48,6 +48,7 @@ class Settings:
     log_level: str = "INFO"
     database_path: str = "deathbot.sqlite3"
     secret_key: str = ""
+    secret_key_file: str = ""
 
     # --- Static config (from config.yaml) ---
     raw: dict[str, Any] = field(default_factory=dict)
@@ -89,6 +90,18 @@ class Settings:
     def absolute_db_path(self) -> Path:
         p = Path(self.database_path)
         return p if p.is_absolute() else PROJECT_ROOT / p
+
+    def absolute_key_path(self) -> Path:
+        """Where the AES master key lives.
+
+        Defaults to sitting next to the database, so in a container both pieces
+        of state land in the same mounted volume — losing the key would make
+        every stored API key undecryptable.
+        """
+        if self.secret_key_file:
+            p = Path(self.secret_key_file)
+            return p if p.is_absolute() else PROJECT_ROOT / p
+        return self.absolute_db_path().parent / ".secret.key"
 
 
 def load_settings(
@@ -136,6 +149,7 @@ def load_settings(
         log_level=os.getenv("LOG_LEVEL", "INFO"),
         database_path=os.getenv("DATABASE_PATH", "deathbot.sqlite3"),
         secret_key=os.getenv("SECRET_KEY", ""),
+        secret_key_file=os.getenv("SECRET_KEY_FILE", ""),
         raw=raw,
         ai_keys=ai_keys,
         osint_keys=osint_keys,

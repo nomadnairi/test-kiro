@@ -61,6 +61,21 @@ python -m deathbot          # start the bot
 Send `/start` in Telegram → the menu appears → tap away.
 Verify the build without a token: `python smoke_test.py`.
 
+### 🩺 Bot not answering?
+
+```bash
+python -m deathbot --check          # or: docker compose run --rm deathbot python -m deathbot --check
+```
+
+It checks the token against Telegram, reports which bot it belongs to, and
+warns about the usual suspects:
+
+| Symptom | Cause |
+|---|---|
+| No reply at all | wrong/empty `BOT_TOKEN`, or a **webhook** is set on the token (long polling then fails), or a second instance is polling the same token |
+| Menu has only ⚙️ Settings | `OWNER_ID` is unset or not your Telegram id → you are a `guest` |
+| Replies but tools refuse | your role lacks the module, or the tool needs an API key / binary |
+
 ## How it works
 
 ```

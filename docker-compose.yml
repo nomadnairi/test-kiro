@@ -11,6 +11,13 @@ services:
     env_file:
       - .env
 
+    # Pinned AFTER env_file so they always win: state must live on the volume.
+    # A .env copied from .env.example carries host-style relative paths, which
+    # would otherwise point at the read-only /app and crash on startup.
+    environment:
+      DATABASE_PATH: /data/deathbot.sqlite3
+      SECRET_KEY_FILE: /data/.secret.key
+
     # SQLite database + AES master key. Losing this volume means losing every
     # stored API key, so keep it around.
     volumes:

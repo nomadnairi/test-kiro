@@ -56,8 +56,17 @@ class Crypto:
         if path.exists():
             return path.read_bytes()[:_KEY_BYTES].ljust(_KEY_BYTES, b"\0")
         key = AESGCM.generate_key(bit_length=256)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_bytes(key)
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(key)
+        except OSError as exc:
+            raise SystemExit(
+                f"Cannot write the encryption key to {path}: {exc}\n"
+                "The bot needs a writable location for its state. In Docker this "
+                "must point at the mounted volume — set SECRET_KEY_FILE and "
+                "DATABASE_PATH to paths under /data (compose does this for you), "
+                "or provide a ready-made 32-byte SECRET_KEY instead."
+            ) from exc
         try:
             os.chmod(path, 0o600)
         except OSError:  # non-POSIX filesystems

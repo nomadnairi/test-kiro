@@ -25,5 +25,5 @@ class MaintenanceMiddleware(BaseMiddleware):
             return await handler(event, data)
 
         if isinstance(event, Message):
-            await event.answer("🛠 DeathBot is under maintenance. Try again later.")
+            await event.answer("🛠 DeathBot на техобслуживании. Загляни позже.")
         return None

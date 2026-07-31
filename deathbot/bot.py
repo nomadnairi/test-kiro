@@ -141,9 +141,9 @@ async def run(settings: Settings | None = None) -> None:
 
     # Show /start, /menu, /cancel in Telegram's command menu.
     await bot.set_my_commands([
-        BotCommand(command="start", description="Open the menu"),
-        BotCommand(command="menu", description="Open the menu"),
-        BotCommand(command="cancel", description="Cancel the current action"),
+        BotCommand(command="start", description="Открыть меню"),
+        BotCommand(command="menu", description="Открыть меню"),
+        BotCommand(command="cancel", description="Отменить текущее действие"),
     ])
 
     log.info("DeathBot started (env=%s, owner=%s, AI providers=%s)",

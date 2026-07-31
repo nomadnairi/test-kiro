@@ -98,7 +98,7 @@ async def main() -> None:
         exp = await get_tool("exp_json").run(container, 42, "")
         check("tool run: export file", exp.file_bytes is not None and exp.filename.endswith(".json"))
         prof = await get_tool("profile").run(container, 42, "")
-        check("tool run: profile", "role" in prof.text.lower())
+        check("tool run: profile", "роль" in prof.text.lower())
 
         # dispatcher
         dp = build_dispatcher(container)

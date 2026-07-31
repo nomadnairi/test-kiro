@@ -25,4 +25,4 @@ class Agent:
             resp = await self.router.chat(messages, provider=provider)
             return resp.content
         except ProviderError as exc:
-            return f"⚠️ {self.name} unavailable: {exc}"
+            return f"⚠️ Агент «{self.name}» недоступен: {exc}"

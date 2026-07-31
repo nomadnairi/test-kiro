@@ -23,15 +23,15 @@ from ..util import truncate
 router = Router(name="menu")
 
 _REASONS = {
-    "banned": "🚫 You are banned.",
-    "not_whitelisted": "🔒 Access denied — you are not whitelisted. Ask the owner for access.",
-    "module_disabled": "⛔ This module is disabled.",
-    "insufficient_role": "⛔ Your role does not permit this.",
+    "banned": "🚫 Ты забанен.",
+    "not_whitelisted": "🔒 Доступ закрыт — тебя нет в списке. Попроси доступ у владельца.",
+    "module_disabled": "⛔ Этот раздел отключён.",
+    "insufficient_role": "⛔ Твоя роль не позволяет это.",
 }
 _WELCOME = (
     "💀 <b>DeathBot</b>\n"
-    "Everything runs from the menu below — just tap.\n"
-    "OSINT · Pentest · AI · Agents · Notes · Export"
+    "Всё управляется кнопками ниже — просто нажимай.\n"
+    "OSINT · Пентест · ИИ · Агенты · Заметки · Экспорт"
 )
 
 
@@ -42,7 +42,7 @@ def _visible(container: Container, role: str):
 
 async def _deny_reason(container: Container, uid: int, module: str) -> str | None:
     decision = await container.access.check(uid, module)
-    return None if decision.allowed else _REASONS.get(decision.reason, "⛔ Access denied.")
+    return None if decision.allowed else _REASONS.get(decision.reason, "⛔ Доступ закрыт.")
 
 
 # --------------------------------------------------------------------------- #
@@ -60,7 +60,7 @@ async def cmd_menu(message: Message, container: Container, state: FSMContext,
 async def cmd_cancel(message: Message, container: Container, state: FSMContext,
                      role: str = "guest") -> None:
     await state.clear()
-    await message.answer("Cancelled.", reply_markup=main_menu(_visible(container, role)))
+    await message.answer("Отменено.", reply_markup=main_menu(_visible(container, role)))
 
 
 # --------------------------------------------------------------------------- #
@@ -79,14 +79,14 @@ async def cb_cancel(cb: CallbackQuery, container: Container, state: FSMContext,
                     role: str = "guest") -> None:
     await state.clear()
     await cb.message.edit_text(_WELCOME, reply_markup=main_menu(_visible(container, role)))
-    await cb.answer("Cancelled")
+    await cb.answer("Отменено")
 
 
 @router.callback_query(F.data == "exp:pick")
 async def cb_export_pick(cb: CallbackQuery, container: Container) -> None:
     formats = container.export.available_formats()
     await cb.message.answer(
-        "📤 <b>Export the last result</b>\nChoose a format:",
+        "📤 <b>Сохранить последний результат</b>\nВыбери формат:",
         reply_markup=export_menu(formats, container.export.LABELS),
     )
     await cb.answer()
@@ -95,11 +95,11 @@ async def cb_export_pick(cb: CallbackQuery, container: Container) -> None:
 @router.callback_query(F.data.startswith("exp:fmt:"))
 async def cb_export_fmt(cb: CallbackQuery, container: Container) -> None:
     fmt = cb.data.split(":", 2)[2]
-    await cb.answer("Rendering…")
+    await cb.answer("Готовлю файл…")
     try:
         result = await build_export(container, cb.from_user.id, fmt)
     except Exception as exc:  # noqa: BLE001
-        await cb.message.answer(f"⚠️ Export failed: {exc}")
+        await cb.message.answer(f"⚠️ Не удалось экспортировать: {exc}")
         return
     await cb.message.answer_document(
         BufferedInputFile(result.file_bytes, filename=result.filename),
@@ -115,7 +115,7 @@ async def cb_category(cb: CallbackQuery, container: Container, state: FSMContext
     from ..registry import CATEGORIES
     label = dict(CATEGORIES).get(category, category)
     await cb.message.edit_text(
-        f"{label}\nPick a tool:",
+        f"{label}\nВыбери инструмент:",
         reply_markup=category_menu(category, _visible(container, role)),
     )
     await cb.answer()
@@ -128,7 +128,7 @@ async def cb_category(cb: CallbackQuery, container: Container, state: FSMContext
 async def cb_tool(cb: CallbackQuery, container: Container, state: FSMContext) -> None:
     tool = get_tool(cb.data.split(":", 1)[1])
     if tool is None:
-        await cb.answer("Unknown tool", show_alert=True)
+        await cb.answer("Неизвестный инструмент", show_alert=True)
         return
 
     reason = await _deny_reason(container, cb.from_user.id, tool.module)
@@ -137,14 +137,14 @@ async def cb_tool(cb: CallbackQuery, container: Container, state: FSMContext) ->
         return
 
     if tool.kind == "instant":
-        await cb.answer("Working…")
+        await cb.answer("Выполняю…")
         await _run_and_reply(cb.message, container, cb.from_user.id, tool, "")
         return
 
     if tool.kind == "chat":
         await state.set_state(AIChat.chatting)
         await cb.message.edit_text(
-            "💬 <b>Chat mode</b> — send messages freely. Tap Cancel to exit.",
+            "💬 <b>Режим диалога</b> — пиши сообщения. Нажми «Отмена», чтобы выйти.",
             reply_markup=cancel_menu(),
         )
         await cb.answer()
@@ -153,7 +153,7 @@ async def cb_tool(cb: CallbackQuery, container: Container, state: FSMContext) ->
     if tool.kind == "apikey":
         await state.set_state(ApiKeyFlow.waiting_provider)
         await cb.message.edit_text(
-            "Which provider? (openrouter, openai, claude, gemini, shodan, hibp…)",
+            "Какой провайдер? (openrouter, openai, claude, gemini, shodan, hibp…)",
             reply_markup=cancel_menu(),
         )
         await cb.answer()
@@ -175,7 +175,7 @@ async def on_input(message: Message, container: Container, state: FSMContext) ->
     tool = get_tool(data.get("tool_id", ""))
     await state.clear()
     if tool is None or tool.run is None:
-        await message.answer("Session expired — open /menu again.")
+        await message.answer("Сессия истекла — открой /menu заново.")
         return
     await message.chat.do("typing")
     await _run_and_reply(message, container, message.from_user.id, tool, message.text)
@@ -191,7 +191,7 @@ async def on_photo(message: Message, container: Container, state: FSMContext) ->
     await message.bot.download(file_id, destination=buf)
     result = container.osint.exif(buf.getvalue())
     from ..registry import human
-    text = human("Metadata / EXIF", result)
+    text = human("Метаданные / EXIF", result)
     await save_last_report(container, message.from_user.id, {
         "title": "Metadata / EXIF",
         "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -213,7 +213,7 @@ async def on_chat(message: Message, container: Container) -> None:
 async def on_key_provider(message: Message, state: FSMContext) -> None:
     await state.update_data(provider=message.text.strip().lower())
     await state.set_state(ApiKeyFlow.waiting_value)
-    await message.answer("Now send the API key. It will be encrypted (AES-256-GCM).",
+    await message.answer("Теперь отправь API-ключ. Он будет зашифрован (AES-256-GCM).",
                          reply_markup=cancel_menu())
 
 
@@ -227,7 +227,7 @@ async def on_key_value(message: Message, container: Container, state: FSMContext
         await message.delete()  # scrub the plaintext key from the chat
     except Exception:  # noqa: BLE001
         pass
-    await message.answer(f"🔐 Stored encrypted key for {provider}.",
+    await message.answer(f"🔐 Ключ для {provider} сохранён (зашифрован).",
                          reply_markup=result_menu("settings"))
 
 
@@ -245,7 +245,7 @@ async def _run_and_reply(message: Message, container: Container, uid: int,
     try:
         result: Result = await tool.run(container, uid, arg)
     except Exception as exc:  # noqa: BLE001 — surface tool errors to the user
-        await message.answer(f"⚠️ {tool.label} failed: {exc}",
+        await message.answer(f"⚠️ Ошибка «{tool.label}»: {exc}",
                              reply_markup=result_menu(tool.category))
         return
 
@@ -254,7 +254,7 @@ async def _run_and_reply(message: Message, container: Container, uid: int,
             BufferedInputFile(result.file_bytes, filename=result.filename),
             caption=result.text or None,
         )
-        await message.answer("Done.", reply_markup=result_menu(tool.category))
+        await message.answer("Готово.", reply_markup=result_menu(tool.category))
     else:
         # Remember this result so the user can re-export it in any format.
         await save_last_report(container, uid, {

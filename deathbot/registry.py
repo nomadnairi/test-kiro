@@ -19,19 +19,34 @@ def strip_html(text: str) -> str:
     """Turn the HTML we send to Telegram back into plain text for file exports."""
     return unescape(_TAG_RE.sub("", text))
 
+
+_TRANSLIT = str.maketrans({
+    "а": "a", "б": "b", "в": "v", "г": "g", "д": "d", "е": "e", "ё": "e",
+    "ж": "zh", "з": "z", "и": "i", "й": "y", "к": "k", "л": "l", "м": "m",
+    "н": "n", "о": "o", "п": "p", "р": "r", "с": "s", "т": "t", "у": "u",
+    "ф": "f", "х": "h", "ц": "ts", "ч": "ch", "ш": "sh", "щ": "sch",
+    "ъ": "", "ы": "y", "ь": "", "э": "e", "ю": "yu", "я": "ya",
+})
+
+
+def _slug(title: str) -> str:
+    """Filesystem-safe file stem — titles are Russian, so transliterate first."""
+    stem = re.sub(r"[^a-z0-9]+", "-", title.lower().translate(_TRANSLIT))
+    return stem.strip("-")[:40] or "report"
+
 if TYPE_CHECKING:
     from .container import Container
 
 # Category id -> button label (order defines the main-menu layout).
 CATEGORIES: list[tuple[str, str]] = [
     ("osint", "🔎 OSINT"),
-    ("pentest", "🛠 Pentest"),
-    ("ai", "🤖 AI"),
-    ("agents", "🧠 Agents"),
-    ("productivity", "📝 Notes & Todo"),
-    ("export", "📤 Export"),
-    ("settings", "⚙️ Settings"),
-    ("admin", "🛡 Admin"),
+    ("pentest", "🛠 Пентест"),
+    ("ai", "🤖 ИИ"),
+    ("agents", "🧠 Агенты"),
+    ("productivity", "📝 Заметки и задачи"),
+    ("export", "📤 Экспорт"),
+    ("settings", "⚙️ Настройки"),
+    ("admin", "🛡 Админ"),
 ]
 
 
@@ -57,8 +72,49 @@ class Tool:
 # formatting helpers
 # --------------------------------------------------------------------------- #
 def _pre(text: str, limit: int = 3200) -> str:
-    text = text if len(text) <= limit else text[:limit] + "\n… (truncated)"
+    text = text if len(text) <= limit else text[:limit] + "\n… (обрезано)"
     return f"<pre>{escape(text)}</pre>"
+
+
+# Field names come back from the tool modules in English; show them in Russian.
+FIELD_LABELS: dict[str, str] = {
+    "domain": "домен", "host": "хост", "query": "запрос", "url": "ссылка",
+    "addresses": "адреса", "reverse": "обратная запись", "error": "ошибка",
+    "subdomains": "поддомены", "count": "найдено", "checked": "проверено",
+    "username": "юзернейм", "found": "найдено", "found_count": "найдено профилей",
+    "email": "email", "valid_format": "формат верный", "gravatar": "gravatar",
+    "hibp": "утечки (HIBP)", "breaches": "утечки", "available": "доступно",
+    "input": "ввод", "digits": "цифры", "e164": "формат E.164",
+    "country_guess": "страна (предположительно)", "length": "длина",
+    "country": "страна", "regionName": "регион", "city": "город", "zip": "индекс",
+    "lat": "широта", "lon": "долгота", "isp": "провайдер", "org": "организация",
+    "as": "AS", "timezone": "часовой пояс", "map": "карта",
+    "ports": "порты", "open_ports": "открытые порты", "hostnames": "имена хостов",
+    "vulns": "уязвимости", "os": "ОС", "engine": "движок",
+    "indicator": "индикатор", "sources": "источники", "listed": "в списках",
+    "url_count": "ссылок", "urls": "ссылки", "abuse_score": "уровень угрозы",
+    "total_reports": "всего жалоб", "source": "источник",
+    "value": "значение", "type": "тип", "suggested_lookups": "что ещё проверить",
+    "image_url": "ссылка на изображение", "engines": "поисковики",
+    "format": "формат", "size": "размер", "camera": "камера",
+    "datetime": "дата съёмки", "software": "софт", "gps": "GPS",
+    "tool": "инструмент", "target": "цель", "installed": "установлен",
+    "ok": "успешно", "output": "вывод", "raw": "ответ", "note": "примечание",
+    "hint": "подсказка", "reason": "причина", "status": "статус",
+    "tls_version": "версия TLS", "cipher": "шифр", "subject_cn": "выдан на",
+    "issuer": "издатель", "valid_from": "действует с", "valid_until": "действует до",
+    "days_until_expiry": "дней до истечения", "san": "альт. имена",
+    "server": "сервер", "powered_by": "работает на", "frameworks": "фреймворки",
+    "headers_of_interest": "заголовки", "security_headers": "заголовки безопасности",
+    "port": "порт", "profiles": "профили", "sites": "сайты",
+    "unavailable": "занято", "availableCount": "свободно", "unavailableCount": "занято",
+    "id": "ID", "role": "роль", "notes": "заметки", "todos": "задачи",
+    "since": "с", "pending_update_count": "апдейтов в очереди",
+}
+
+
+def _label(key: str) -> str:
+    return FIELD_LABELS.get(key, key)
 
 
 def human(title: str, data: dict) -> str:
@@ -68,24 +124,25 @@ def human(title: str, data: dict) -> str:
     for key, value in data.items():
         if value in (None, "", [], {}):
             continue
+        name = _label(key)
         if key in raw_keys:
             lines.append(_pre(str(value)))
         elif isinstance(value, dict):
-            inner = "\n".join(f"  {escape(str(k))}: {escape(str(v))}"
+            inner = "\n".join(f"  {escape(_label(str(k)))}: {escape(str(v))}"
                               for k, v in value.items() if v not in (None, ""))
-            lines.append(f"<b>{escape(key)}</b>:\n{inner}")
+            lines.append(f"<b>{escape(name)}</b>:\n{inner}")
         elif isinstance(value, list):
             if not value:
                 continue
             if isinstance(value[0], dict):
-                items = "\n".join("  • " + ", ".join(f"{k}={v}" for k, v in d.items())
+                items = "\n".join("  • " + ", ".join(f"{_label(k)}={v}" for k, v in d.items())
                                   for d in value[:25])
             else:
                 items = "\n".join(f"  • {escape(str(v))}" for v in value[:40])
-            more = f"\n  … +{len(value) - 40} more" if len(value) > 40 else ""
-            lines.append(f"<b>{escape(key)}</b> ({len(value)}):\n{items}{more}")
+            more = f"\n  … ещё {len(value) - 40}" if len(value) > 40 else ""
+            lines.append(f"<b>{escape(name)}</b> ({len(value)}):\n{items}{more}")
         else:
-            lines.append(f"<b>{escape(key)}</b>: {escape(str(value))}")
+            lines.append(f"<b>{escape(name)}</b>: {escape(str(value))}")
     return "\n".join(lines)
 
 
@@ -128,66 +185,67 @@ async def _ai_ask(c: "Container", uid: int, arg: str) -> Result:
 
 async def _ai_reset(c: "Container", uid: int, _: str) -> Result:
     await c.ai.reset(uid)
-    return Result("🧹 Conversation history cleared.")
+    return Result("🧹 История диалога очищена.")
 
 
 async def _ai_providers(c: "Container", uid: int, _: str) -> Result:
     avail = c.ai.available_providers()
-    return Result("<b>AI providers</b>\nAvailable: " + (", ".join(avail) or "none — add a key in ⚙️ Settings"))
+    return Result("<b>ИИ-провайдеры</b>\nДоступны: "
+                  + (", ".join(avail) or "нет — добавь ключ в ⚙️ Настройках"))
 
 
 async def _note_add(c: "Container", uid: int, arg: str) -> Result:
     nid = await c.notes.add(uid, arg)
-    return Result(f"📝 Saved note #{nid}")
+    return Result(f"📝 Заметка #{nid} сохранена")
 
 
 async def _note_list(c: "Container", uid: int, _: str) -> Result:
     notes = await c.notes.list(uid)
     if not notes:
-        return Result("No notes yet.")
-    return Result("<b>Your notes</b>\n" + "\n".join(
-        f"#{n['id']} {escape(n['title'] or 'untitled')}" for n in notes))
+        return Result("Заметок пока нет.")
+    return Result("<b>Твои заметки</b>\n" + "\n".join(
+        f"#{n['id']} {escape(n['title'] or 'без названия')}" for n in notes))
 
 
 async def _todo_add(c: "Container", uid: int, arg: str) -> Result:
     tid = await c.todos.add(uid, arg)
-    return Result(f"✅ Added todo #{tid}")
+    return Result(f"✅ Задача #{tid} добавлена")
 
 
 async def _todo_list(c: "Container", uid: int, _: str) -> Result:
     todos = await c.todos.list(uid)
     if not todos:
-        return Result("No todos yet.")
-    return Result("<b>Your todos</b>\n" + "\n".join(
+        return Result("Задач пока нет.")
+    return Result("<b>Твои задачи</b>\n" + "\n".join(
         f"{'☑️' if t['done'] else '⬜'} #{t['id']} {escape(t['text'])}" for t in todos))
 
 
 async def _todo_done(c: "Container", uid: int, arg: str) -> Result:
     if not arg.strip().isdigit():
-        return Result("Send a numeric todo id.")
+        return Result("Отправь номер задачи (число).")
     ok = await c.todos.done(uid, int(arg.strip()))
-    return Result("☑️ Completed." if ok else "Not found.")
+    return Result("☑️ Выполнено." if ok else "Не найдено.")
 
 
 async def _profile(c: "Container", uid: int, _: str) -> Result:
     p = await c.users.profile(uid)
     if not p:
-        return Result("No profile yet.")
-    return Result(human("Your profile", {
+        return Result("Профиля пока нет.")
+    return Result(human("Твой профиль", {
         "id": p["id"], "username": p["username"], "role": p["role"],
         "notes": p["notes"], "todos": p["todos"],
-        "AI keys": ", ".join(p["providers"]) or "—", "since": p["created_at"],
+        "ключи ИИ": ", ".join(p["providers"]) or "—", "since": p["created_at"],
     }))
 
 
 async def _keys_list(c: "Container", uid: int, _: str) -> Result:
     provs = await c.api_keys.list_providers(uid)
-    return Result("🔑 Stored keys: " + (", ".join(provs) or "none"))
+    return Result("🔑 Сохранённые ключи: " + (", ".join(provs) or "нет"))
 
 
 async def _set_provider(c: "Container", uid: int, arg: str) -> Result:
     await c.settings_svc.set(uid, "ai_provider", arg.strip().lower())
-    return Result(f"✅ Default AI provider set to {escape(arg.strip().lower())}")
+    return Result(f"✅ Провайдер ИИ по умолчанию: {escape(arg.strip().lower())}")
 
 
 async def load_last_report(c: "Container", uid: int) -> dict | None:
@@ -205,14 +263,14 @@ async def build_export(c: "Container", uid: int, fmt: str) -> Result:
     if report is None:
         notes = await c.notes.list(uid)
         todos = await c.todos.list(uid)
-        report = c.report.build("DeathBot workspace", {
-            "notes": "\n".join(f"- {n['title']}: {n['body']}" for n in notes) or "none",
-            "todos": "\n".join(f"[{'x' if t['done'] else ' '}] {t['text']}" for t in todos) or "none",
+        report = c.report.build("Рабочее пространство DeathBot", {
+            "Заметки": "\n".join(f"- {n['title']}: {n['body']}" for n in notes) or "нет",
+            "Задачи": "\n".join(f"[{'x' if t['done'] else ' '}] {t['text']}" for t in todos) or "нет",
         })
         report["tags"] = ["deathbot", "workspace"]
     blob = c.export.render(report, fmt)
     ext = c.export.extension(fmt)
-    safe = re.sub(r"[^a-z0-9]+", "-", report["title"].lower()).strip("-")[:40] or "report"
+    safe = _slug(report["title"])
     return Result(f"📤 <b>{escape(report['title'])}</b> → {fmt.upper()}",
                   filename=f"{safe}.{ext}", file_bytes=blob)
 
@@ -225,7 +283,7 @@ def _export(fmt: str):
 
 async def _users(c: "Container", uid: int, _: str) -> Result:
     users = await c.users.list_users(30)
-    return Result("<b>Users</b>\n" + "\n".join(
+    return Result("<b>Пользователи</b>\n" + "\n".join(
         f"<code>{u['id']}</code> @{u['username'] or '—'} — {u['role']}"
         + (" 🚫" if u["is_banned"] else "") for u in users))
 
@@ -234,30 +292,31 @@ async def _grant(c: "Container", uid: int, arg: str) -> Result:
     parts = arg.split()
     from .core.roles import ROLE_ORDER
     if len(parts) != 2 or not parts[0].isdigit() or parts[1] not in ROLE_ORDER:
-        return Result(f"Format: <code>&lt;user_id&gt; &lt;role&gt;</code>\nRoles: {', '.join(ROLE_ORDER)}")
+        return Result("Формат: <code>&lt;id пользователя&gt; &lt;роль&gt;</code>\n"
+                      f"Роли: {', '.join(ROLE_ORDER)}")
     await c.access.grant(uid, int(parts[0]), parts[1])
     return Result(f"✅ {parts[0]} → {parts[1]}")
 
 
 async def _ban(c: "Container", uid: int, arg: str) -> Result:
     if not arg.strip().isdigit():
-        return Result("Send a numeric user id.")
+        return Result("Отправь ID пользователя (число).")
     await c.access.ban(uid, int(arg.strip()), True)
-    return Result("🚫 Banned.")
+    return Result("🚫 Забанен.")
 
 
 async def _unban(c: "Container", uid: int, arg: str) -> Result:
     if not arg.strip().isdigit():
-        return Result("Send a numeric user id.")
+        return Result("Отправь ID пользователя (число).")
     await c.access.ban(uid, int(arg.strip()), False)
-    return Result("✅ Unbanned.")
+    return Result("✅ Разбанен.")
 
 
 async def _audit(c: "Container", uid: int, _: str) -> Result:
     rows = await c.repos.audit.recent(25)
     if not rows:
-        return Result("No audit entries.")
-    return Result("<b>Recent audit</b>\n" + "\n".join(
+        return Result("Записей в журнале нет.")
+    return Result("<b>Последние действия</b>\n" + "\n".join(
         f"{r['created_at']} · {r['user_id']} · {r['action']} {r['detail'] or ''}" for r in rows))
 
 
@@ -270,100 +329,101 @@ def _t(**kw) -> Tool:
 TOOLS: dict[str, Tool] = {t.id: t for t in [
     # ---- OSINT ----
     _t(id="whois", label="WHOIS", category="osint", module="osint",
-       prompt="Send a domain (e.g. example.com)", run=_osint("whois", "WHOIS")),
+       prompt="Отправь домен (например example.com)", run=_osint("whois", "WHOIS")),
     _t(id="dns", label="DNS", category="osint", module="osint",
-       prompt="Send a host/domain", run=_osint("dns", "DNS")),
-    _t(id="subdomains", label="Subdomains", category="osint", module="osint",
-       prompt="Send a domain (crt.sh)", run=_osint("subdomains", "Subdomains")),
-    _t(id="username", label="Username", category="osint", module="osint",
-       prompt="Send a username to search across sites", run=_osint("username", "Username")),
-    _t(id="email", label="Email", category="osint", module="osint",
-       prompt="Send an email address", run=_osint("email", "Email")),
-    _t(id="phone", label="Phone", category="osint", module="osint",
-       prompt="Send a phone number (+countrycode…)", run=_osint("phone", "Phone")),
+       prompt="Отправь хост или домен", run=_osint("dns", "DNS")),
+    _t(id="subdomains", label="Поддомены", category="osint", module="osint",
+       prompt="Отправь домен — поищу поддомены (crt.sh)", run=_osint("subdomains", "Поддомены")),
+    _t(id="username", label="Юзернейм", category="osint", module="osint",
+       prompt="Отправь никнейм — поищу профили на сайтах", run=_osint("username", "Юзернейм")),
+    _t(id="email", label="Почта", category="osint", module="osint",
+       prompt="Отправь email-адрес", run=_osint("email", "Почта")),
+    _t(id="phone", label="Телефон", category="osint", module="osint",
+       prompt="Отправь номер телефона (+код страны…)", run=_osint("phone", "Телефон")),
     _t(id="geoip", label="GeoIP", category="osint", module="geoint",
-       prompt="Send an IP or host", run=_osint("geoip", "GeoIP")),
+       prompt="Отправь IP или хост", run=_osint("geoip", "GeoIP")),
     _t(id="shodan", label="Shodan", category="osint", module="osint",
-       prompt="Send an IP (needs Shodan key)", run=_osint("shodan", "Shodan")),
+       prompt="Отправь IP (нужен ключ Shodan)", run=_osint("shodan", "Shodan")),
     _t(id="threatintel", label="Threat Intel", category="osint", module="osint",
-       prompt="Send an IP / domain / URL", run=_osint("threat_intel", "Threat Intel")),
-    _t(id="ioc", label="IOC", category="osint", module="osint",
-       prompt="Send an indicator (IP/hash/CVE/domain…)", run=_osint("ioc", "IOC")),
-    _t(id="revimg", label="Reverse Image", category="osint", module="image",
-       prompt="Send an image URL", run=_osint("reverse_image", "Reverse Image")),
-    _t(id="exif", label="Metadata/EXIF", category="osint", module="image",
-       kind="photo", prompt="Send a photo (as file for full EXIF)"),
-    _t(id="darknet", label="Darknet", category="osint", module="osint",
-       prompt="Send a query", run=_osint("darknet", "Darknet")),
+       prompt="Отправь IP, домен или ссылку", run=_osint("threat_intel", "Threat Intel")),
+    _t(id="ioc", label="Индикатор", category="osint", module="osint",
+       prompt="Отправь индикатор (IP, хеш, CVE, домен…)", run=_osint("ioc", "Индикатор")),
+    _t(id="revimg", label="Поиск по фото", category="osint", module="image",
+       prompt="Отправь ссылку на изображение", run=_osint("reverse_image", "Поиск по фото")),
+    _t(id="exif", label="Метаданные", category="osint", module="image",
+       kind="photo", prompt="Отправь фото (файлом — тогда EXIF сохранится полностью)"),
+    _t(id="darknet", label="Даркнет", category="osint", module="osint",
+       prompt="Отправь запрос", run=_osint("darknet", "Даркнет")),
 
     # ---- Pentest ----
-    _t(id="portscan", label="Port Scan", category="pentest", module="recon",
-       prompt="Send a host (authorised only)", run=_pentest_native("scan_ports", "Port Scan")),
-    _t(id="sslscan", label="SSL Scan", category="pentest", module="recon",
-       prompt="Send a host", run=_pentest_native("ssl_scan", "SSL Scan")),
-    _t(id="techdetect", label="Tech Detect", category="pentest", module="web",
-       prompt="Send a URL", run=_pentest_native("tech_detect", "Tech Detect")),
+    _t(id="portscan", label="Скан портов", category="pentest", module="recon",
+       prompt="Отправь хост (только с разрешения владельца)",
+       run=_pentest_native("scan_ports", "Скан портов")),
+    _t(id="sslscan", label="SSL-скан", category="pentest", module="recon",
+       prompt="Отправь хост", run=_pentest_native("ssl_scan", "SSL-скан")),
+    _t(id="techdetect", label="Технологии", category="pentest", module="web",
+       prompt="Отправь ссылку", run=_pentest_native("tech_detect", "Технологии")),
     _t(id="subfinder", label="subfinder", category="pentest", module="recon",
-       prompt="Send a domain", run=_external("subfinder", "subfinder")),
+       prompt="Отправь домен", run=_external("subfinder", "subfinder")),
     _t(id="amass", label="amass", category="pentest", module="recon",
-       prompt="Send a domain", run=_external("amass", "amass")),
+       prompt="Отправь домен", run=_external("amass", "amass")),
     _t(id="httpx", label="httpx", category="pentest", module="recon",
-       prompt="Send a URL/host", run=_external("httpx", "httpx")),
+       prompt="Отправь ссылку или хост", run=_external("httpx", "httpx")),
     _t(id="naabu", label="naabu", category="pentest", module="recon",
-       prompt="Send a host", run=_external("naabu", "naabu")),
+       prompt="Отправь хост", run=_external("naabu", "naabu")),
     _t(id="nuclei", label="nuclei", category="pentest", module="recon",
-       prompt="Send a URL (authorised only)", run=_external("nuclei", "nuclei")),
+       prompt="Отправь ссылку (только с разрешения владельца)", run=_external("nuclei", "nuclei")),
     _t(id="katana", label="katana", category="pentest", module="recon",
-       prompt="Send a URL", run=_external("katana", "katana")),
+       prompt="Отправь ссылку", run=_external("katana", "katana")),
     _t(id="masscan", label="masscan", category="pentest", module="recon",
-       prompt="Send a host/CIDR (authorised only)", run=_external("masscan", "masscan")),
+       prompt="Отправь хост или подсеть (только с разрешения)", run=_external("masscan", "masscan")),
     _t(id="rustscan", label="rustscan", category="pentest", module="recon",
-       prompt="Send a host", run=_external("rustscan", "rustscan")),
+       prompt="Отправь хост", run=_external("rustscan", "rustscan")),
     _t(id="gobuster", label="gobuster", category="pentest", module="recon",
-       prompt="Send a domain", run=_external("gobuster", "gobuster")),
+       prompt="Отправь домен", run=_external("gobuster", "gobuster")),
     _t(id="ffuf", label="ffuf", category="pentest", module="web",
-       prompt="Send a URL with FUZZ", run=_external("ffuf", "ffuf")),
+       prompt="Отправь ссылку со словом FUZZ", run=_external("ffuf", "ffuf")),
     _t(id="ferox", label="feroxbuster", category="pentest", module="web",
-       prompt="Send a URL", run=_external("feroxbuster", "feroxbuster")),
+       prompt="Отправь ссылку", run=_external("feroxbuster", "feroxbuster")),
 
     # ---- AI ----
-    _t(id="ai_ask", label="Ask AI", category="ai", module="ai",
-       prompt="Send your question", run=_ai_ask),
-    _t(id="ai_chat", label="Chat mode", category="ai", module="ai", kind="chat"),
-    _t(id="ai_providers", label="Providers", category="ai", module="ai",
+    _t(id="ai_ask", label="Спросить ИИ", category="ai", module="ai",
+       prompt="Задай вопрос", run=_ai_ask),
+    _t(id="ai_chat", label="Режим диалога", category="ai", module="ai", kind="chat"),
+    _t(id="ai_providers", label="Провайдеры", category="ai", module="ai",
        kind="instant", run=_ai_providers),
-    _t(id="ai_reset", label="Reset history", category="ai", module="ai",
+    _t(id="ai_reset", label="Очистить историю", category="ai", module="ai",
        kind="instant", run=_ai_reset),
 
     # ---- Agents ----
-    _t(id="ag_general", label="General", category="agents", module="ai",
-       prompt="Describe the task", run=_agent("general", "General Assistant")),
+    _t(id="ag_general", label="Универсальный", category="agents", module="ai",
+       prompt="Опиши задачу", run=_agent("general", "Универсальный ассистент")),
     _t(id="ag_osint", label="OSINT", category="agents", module="ai",
-       prompt="Describe the target", run=_agent("osint", "OSINT Agent")),
-    _t(id="ag_recon", label="Recon", category="agents", module="ai",
-       prompt="Describe the target", run=_agent("recon", "Recon Agent")),
-    _t(id="ag_report", label="Report", category="agents", module="ai",
-       prompt="Paste findings to summarise", run=_agent("report", "Report Agent")),
+       prompt="Опиши цель", run=_agent("osint", "OSINT-агент")),
+    _t(id="ag_recon", label="Разведка", category="agents", module="ai",
+       prompt="Опиши цель", run=_agent("recon", "Агент разведки")),
+    _t(id="ag_report", label="Отчёт", category="agents", module="ai",
+       prompt="Вставь находки — соберу отчёт", run=_agent("report", "Агент отчётов")),
     _t(id="ag_threat", label="Threat Intel", category="agents", module="ai",
-       prompt="Send indicators", run=_agent("threatintel", "Threat Intel Agent")),
-    _t(id="ag_code", label="Code", category="agents", module="ai",
-       prompt="Describe the code task", run=_agent("code", "Code Agent")),
-    _t(id="ag_research", label="Research", category="agents", module="ai",
-       prompt="Send a research question", run=_agent("research", "Research Agent")),
-    _t(id="ag_planner", label="Planner", category="agents", module="ai",
-       prompt="Send an objective", run=_agent("planner", "Planner Agent")),
+       prompt="Отправь индикаторы", run=_agent("threatintel", "Агент Threat Intel")),
+    _t(id="ag_code", label="Код", category="agents", module="ai",
+       prompt="Опиши задачу по коду", run=_agent("code", "Агент по коду")),
+    _t(id="ag_research", label="Ресёрч", category="agents", module="ai",
+       prompt="Задай исследовательский вопрос", run=_agent("research", "Агент-исследователь")),
+    _t(id="ag_planner", label="Планировщик", category="agents", module="ai",
+       prompt="Опиши цель — составлю план", run=_agent("planner", "Агент-планировщик")),
 
     # ---- Productivity ----
-    _t(id="note_add", label="➕ Note", category="productivity", module="notes",
-       prompt="Send note text (first line = title)", run=_note_add),
-    _t(id="note_list", label="📋 Notes", category="productivity", module="notes",
+    _t(id="note_add", label="➕ Заметка", category="productivity", module="notes",
+       prompt="Отправь текст заметки (первая строка — заголовок)", run=_note_add),
+    _t(id="note_list", label="📋 Заметки", category="productivity", module="notes",
        kind="instant", run=_note_list),
-    _t(id="todo_add", label="➕ Todo", category="productivity", module="todo",
-       prompt="Send todo text", run=_todo_add),
-    _t(id="todo_list", label="📋 Todos", category="productivity", module="todo",
+    _t(id="todo_add", label="➕ Задача", category="productivity", module="todo",
+       prompt="Отправь текст задачи", run=_todo_add),
+    _t(id="todo_list", label="📋 Задачи", category="productivity", module="todo",
        kind="instant", run=_todo_list),
-    _t(id="todo_done", label="☑️ Done", category="productivity", module="todo",
-       prompt="Send a todo id to complete", run=_todo_done),
+    _t(id="todo_done", label="☑️ Выполнить", category="productivity", module="todo",
+       prompt="Отправь номер задачи", run=_todo_done),
 
     # ---- Export ----
     _t(id="exp_pdf", label="PDF", category="export", module="reports", kind="instant", run=_export("pdf")),
@@ -374,23 +434,25 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
     _t(id="exp_json", label="JSON", category="export", module="reports", kind="instant", run=_export("json")),
 
     # ---- Settings ----
-    _t(id="profile", label="👤 Profile", category="settings", module="profile",
+    _t(id="profile", label="👤 Профиль", category="settings", module="profile",
        kind="instant", run=_profile),
-    _t(id="keys", label="🔑 Keys", category="settings", module="profile",
+    _t(id="keys", label="🔑 Ключи", category="settings", module="profile",
        kind="instant", run=_keys_list),
-    _t(id="addkey", label="➕ Add key", category="settings", module="profile", kind="apikey"),
-    _t(id="setprov", label="Set provider", category="settings", module="profile",
-       prompt="Send a provider name (openrouter, openai, claude, gemini…)", run=_set_provider),
+    _t(id="addkey", label="➕ Добавить ключ", category="settings", module="profile", kind="apikey"),
+    _t(id="setprov", label="Сменить ИИ", category="settings", module="profile",
+       prompt="Отправь название провайдера (openrouter, openai, claude, gemini…)",
+       run=_set_provider),
 
     # ---- Admin ----
-    _t(id="users", label="Users", category="admin", module="admin", kind="instant", run=_users),
-    _t(id="grant", label="Grant", category="admin", module="admin",
-       prompt="Send: <user_id> <role>", run=_grant),
-    _t(id="ban", label="Ban", category="admin", module="admin",
-       prompt="Send a user id to ban", run=_ban),
-    _t(id="unban", label="Unban", category="admin", module="admin",
-       prompt="Send a user id to unban", run=_unban),
-    _t(id="audit", label="Audit log", category="admin", module="audit",
+    _t(id="users", label="Пользователи", category="admin", module="admin",
+       kind="instant", run=_users),
+    _t(id="grant", label="Выдать роль", category="admin", module="admin",
+       prompt="Отправь: &lt;id пользователя&gt; &lt;роль&gt;", run=_grant),
+    _t(id="ban", label="Забанить", category="admin", module="admin",
+       prompt="Отправь ID пользователя для бана", run=_ban),
+    _t(id="unban", label="Разбанить", category="admin", module="admin",
+       prompt="Отправь ID пользователя для разбана", run=_unban),
+    _t(id="audit", label="Журнал", category="admin", module="audit",
        kind="instant", run=_audit),
 ]}
 

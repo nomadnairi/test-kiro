@@ -6,8 +6,8 @@ from ..config import Settings
 from ..repositories import Repositories
 
 _SYSTEM_PROMPT = (
-    "You are DeathBot, a concise cybersecurity and OSINT assistant. "
-    "Answer clearly. Never invent tool output."
+    "Ты DeathBot — лаконичный ассистент по кибербезопасности и OSINT. "
+    "Отвечай по-русски, ясно и по делу. Не выдумывай вывод инструментов."
 )
 
 
@@ -32,7 +32,7 @@ class AIService:
         try:
             response = await self.router.chat(messages, provider=provider, model=model)
         except ProviderError as exc:
-            return f"⚠️ AI unavailable: {exc}"
+            return f"⚠️ ИИ недоступен: {exc}"
 
         await self.repos.history.add(
             user_id, "assistant", response.content, response.provider, response.model

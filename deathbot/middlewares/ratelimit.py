@@ -37,7 +37,7 @@ class RateLimitMiddleware(BaseMiddleware):
 
         if len(bucket) >= limit:
             if isinstance(event, Message):
-                await event.answer("⏳ Slow down — rate limit reached.")
+                await event.answer("⏳ Слишком часто — подожди немного.")
             return None
 
         bucket.append(now)

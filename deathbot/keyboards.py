@@ -26,23 +26,23 @@ def category_menu(category: str, visible: Visible) -> InlineKeyboardMarkup:
         if visible(tool.module):
             kb.button(text=tool.label, callback_data=f"tool:{tool.id}")
     kb.adjust(3)
-    kb.row(InlineKeyboardButton(text="⬅️ Menu", callback_data="nav:main"))
+    kb.row(InlineKeyboardButton(text="⬅️ Меню", callback_data="nav:main"))
     return kb.as_markup()
 
 
 def cancel_menu() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="✖️ Cancel", callback_data="nav:cancel")]
+        [InlineKeyboardButton(text="✖️ Отмена", callback_data="nav:cancel")]
     ])
 
 
 def result_menu(category: str, exportable: bool = False) -> InlineKeyboardMarkup:
     rows = []
     if exportable:
-        rows.append([InlineKeyboardButton(text="📤 Export / Save as…", callback_data="exp:pick")])
+        rows.append([InlineKeyboardButton(text="📤 Сохранить как…", callback_data="exp:pick")])
     rows.append([
-        InlineKeyboardButton(text="⬅️ Back", callback_data=f"cat:{category}"),
-        InlineKeyboardButton(text="🏠 Menu", callback_data="nav:main"),
+        InlineKeyboardButton(text="⬅️ Назад", callback_data=f"cat:{category}"),
+        InlineKeyboardButton(text="🏠 Меню", callback_data="nav:main"),
     ])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
@@ -52,5 +52,5 @@ def export_menu(formats: list[str], labels: dict[str, str]) -> InlineKeyboardMar
     for fmt in formats:
         kb.button(text=labels.get(fmt, fmt.upper()), callback_data=f"exp:fmt:{fmt}")
     kb.adjust(2)
-    kb.row(InlineKeyboardButton(text="⬅️ Menu", callback_data="nav:main"))
+    kb.row(InlineKeyboardButton(text="⬅️ Меню", callback_data="nav:main"))
     return kb.as_markup()

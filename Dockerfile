@@ -27,13 +27,18 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ---------------------------------------------------------------------------
-# Stage 1b: gobuild — compile the Go OSINT CLIs (gau, phoneinfoga)
+# Stage 1b: gobuild — compile gau, and fetch the prebuilt phoneinfoga binary
 # ---------------------------------------------------------------------------
+# phoneinfoga embeds a web client (go:embed client/dist/*) that is not present
+# in a plain `go install`, so it is downloaded as a release binary instead.
 FROM golang:1.22-bookworm AS gobuild
 ENV CGO_ENABLED=0 GOBIN=/out
 RUN mkdir -p /out \
-    && go install github.com/lc/gau/v2/cmd/gau@latest \
-    && go install github.com/sundowndev/phoneinfoga/v2@latest
+    && (go install github.com/lc/gau/v2/cmd/gau@latest \
+        || echo "WARN: gau build failed (tool will be reported as not installed)")
+RUN curl -sSL "https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install" \
+        | bash -s -- -b /out \
+    || echo "WARN: phoneinfoga download failed (tool will be reported as not installed)"
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime — minimal, non-root, signal-correct
@@ -63,8 +68,8 @@ RUN for pkg in \
     done \
     && rm -rf /root/.cache
 
-# Go OSINT binaries.
-COPY --from=gobuild /out/gau /out/phoneinfoga /usr/local/bin/
+# Go / release OSINT binaries (whatever built successfully lands here).
+COPY --from=gobuild /out/ /usr/local/bin/
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

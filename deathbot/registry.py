@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from html import escape, unescape
 from typing import TYPE_CHECKING, Awaitable, Callable
 
@@ -39,6 +40,7 @@ if TYPE_CHECKING:
 
 # Category id -> button label (order defines the main-menu layout).
 CATEGORIES: list[tuple[str, str]] = [
+    ("workflows", "🧩 Комбайны"),
     ("osint", "🔎 OSINT"),
     ("pentest", "🛠 Пентест"),
     ("ai", "🤖 ИИ"),
@@ -55,6 +57,7 @@ class Result:
     text: str
     filename: str | None = None
     file_bytes: bytes | None = None
+    report: dict | None = None        # rich report to remember for export (workflows)
 
 
 @dataclass(slots=True)
@@ -67,6 +70,8 @@ class Tool:
     prompt: str | None = None
     run: Callable[["Container", int, str], Awaitable[Result]] | None = None
     desc: str = ""                    # one-line "what it does", shown on tap
+    background: bool = False           # run via the task engine (slow tools)
+    validate: str = ""                # expected input: domain|host|ip|email|url|username|phone
 
 
 # --------------------------------------------------------------------------- #
@@ -183,6 +188,74 @@ def _osint_cli(tool_id: str, title: str):
     async def _run(c: "Container", uid: int, arg: str) -> Result:
         return _cli_result(title, arg, await c.osint.cli(uid, tool_id, arg))
     return _run
+
+
+# --------------------------------------------------------------------------- #
+# combine workflows — chain several tools into one report
+# --------------------------------------------------------------------------- #
+def _report(title: str, tags: list[str], sections: dict[str, str]) -> dict:
+    return {
+        "title": title,
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "tags": ["deathbot", *tags],
+        "sections": sections,
+    }
+
+
+async def _collect(steps: list[tuple[str, Awaitable[dict]]]) -> dict[str, str]:
+    """Run each step, rendering its result (or error) into a plain-text section."""
+    sections: dict[str, str] = {}
+    for name, coro in steps:
+        try:
+            data = await coro
+            if data.get("installed") is False:
+                sections[name] = data.get("hint", "инструмент не установлен")
+            else:
+                sections[name] = strip_html(human(name, data))
+        except Exception as exc:  # noqa: BLE001
+            sections[name] = f"ошибка: {exc}"
+    return sections
+
+
+def _wf_result(title: str, report: dict, sections: dict[str, str]) -> Result:
+    summary = ("✅ <b>" + escape(title) + "</b>\nСобрано: "
+               + ", ".join(sections.keys())
+               + "\n\nНажми «📤 Сохранить как…», чтобы получить отчёт файлом.")
+    return Result(summary, report=report)
+
+
+async def _wf_domain(c: "Container", uid: int, arg: str) -> Result:
+    d = arg.strip().lower()
+    sections = await _collect([
+        ("WHOIS", c.osint.whois(uid, d)),
+        ("DNS", c.osint.dns(uid, d)),
+        ("Поддомены", c.osint.subdomains(uid, d)),
+        ("Почтовая защита (DMARC)", c.osint.cli(uid, "checkdmarc", d)),
+        ("Технологии сайта", c.pentest.tech_detect(uid, d)),
+    ])
+    report = _report(f"Отчёт по домену {d}", ["домен", d], sections)
+    return _wf_result(f"Отчёт по домену {d}", report, sections)
+
+
+async def _wf_username(c: "Container", uid: int, arg: str) -> Result:
+    u = arg.strip().lstrip("@")
+    sections = await _collect([
+        ("Профили (быстрая проверка)", c.osint.username(uid, u)),
+        ("Maigret", c.osint.cli(uid, "maigret", u)),
+    ])
+    report = _report(f"Профиль по нику {u}", ["username", u], sections)
+    return _wf_result(f"Профиль по нику {u}", report, sections)
+
+
+async def _wf_ip(c: "Container", uid: int, arg: str) -> Result:
+    ip = arg.strip()
+    sections = await _collect([
+        ("Геолокация", c.osint.geoip(uid, ip)),
+        ("Репутация / угрозы", c.osint.threat_intel(uid, ip)),
+        ("Shodan", c.osint.shodan(uid, ip)),
+    ])
+    report = _report(f"Досье по IP {ip}", ["ip", ip], sections)
+    return _wf_result(f"Досье по IP {ip}", report, sections)
 
 
 def _agent(agent_id: str, title: str):
@@ -335,6 +408,16 @@ async def _audit(c: "Container", uid: int, _: str) -> Result:
         f"{r['created_at']} · {r['user_id']} · {r['action']} {r['detail'] or ''}" for r in rows))
 
 
+async def _backup(c: "Container", uid: int, _: str) -> Result:
+    if not c.access.is_owner(uid):
+        return Result("⛔ Бэкап БД доступен только владельцу.")
+    data = await c.db.snapshot()
+    await c.repos.audit.log(uid, "db.backup", f"{len(data)} bytes")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    return Result(f"💾 Бэкап базы ({len(data) // 1024} КБ). Содержит зашифрованные ключи — храни надёжно.",
+                  filename=f"deathbot-backup-{stamp}.sqlite3", file_bytes=data)
+
+
 # --------------------------------------------------------------------------- #
 # the registry
 # --------------------------------------------------------------------------- #
@@ -342,6 +425,17 @@ def _t(**kw) -> Tool:
     return Tool(**kw)
 
 TOOLS: dict[str, Tool] = {t.id: t for t in [
+    # ---- Комбайны (несколько инструментов → один отчёт) ----
+    _t(id="wf_domain", label="🌐 Отчёт по домену", category="workflows", module="osint",
+       prompt="Отправь домен", run=_wf_domain, background=True, validate="domain",
+       desc="WHOIS + DNS + поддомены + DMARC + технологии → один отчёт"),
+    _t(id="wf_username", label="👤 Профиль по нику", category="workflows", module="osint",
+       prompt="Отправь юзернейм", run=_wf_username, background=True, validate="username",
+       desc="Поиск по сайтам + Maigret → один отчёт по нику"),
+    _t(id="wf_ip", label="📍 Досье по IP", category="workflows", module="osint",
+       prompt="Отправь IP-адрес", run=_wf_ip, background=True, validate="ip",
+       desc="Геолокация + репутация + Shodan → досье по IP"),
+
     # ---- OSINT ----
     _t(id="whois", label="WHOIS", category="osint", module="osint",
        prompt="Отправь домен (например example.com)", run=_osint("whois", "WHOIS")),
@@ -516,6 +610,8 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
        prompt="Отправь ID пользователя для разбана", run=_unban),
     _t(id="audit", label="Журнал", category="admin", module="audit",
        kind="instant", run=_audit),
+    _t(id="backup", label="💾 Бэкап БД", category="admin", module="admin",
+       kind="instant", run=_backup, desc="Скачать снимок базы (только владелец)"),
 ]}
 
 # Descriptions for the built-in tools (the GitHub CLIs above set desc inline).
@@ -575,10 +671,44 @@ DESCRIPTIONS: dict[str, str] = {
     "users": "Список пользователей", "grant": "Выдать пользователю роль",
     "ban": "Забанить пользователя", "unban": "Снять бан",
     "audit": "Последние действия из журнала",
+    "backup": "Скачать снимок базы (только владелец)",
+    # Export
+    "exp_pdf": "Последний результат → PDF", "exp_docx": "Последний результат → DOCX",
+    "exp_html": "Последний результат → HTML", "exp_md": "Последний результат → Markdown",
+    "exp_csv": "Последний результат → CSV", "exp_json": "Последний результат → JSON",
 }
 for _tid, _d in DESCRIPTIONS.items():
     if _tid in TOOLS:
         TOOLS[_tid].desc = _d
+
+# Slow tools (external CLIs + crt.sh + port scan) run through the task engine so
+# the chat isn't blocked for minutes.
+_BACKGROUND = {
+    "theharvester", "sherlock_cli", "holehe", "maigret", "socialscan", "h8mail",
+    "dnstwist", "dnsrecon", "sublist3r", "checkdmarc", "wafw00f", "metafinder",
+    "whatweb", "gau", "phoneinfoga",
+    "subfinder", "amass", "httpx", "naabu", "nuclei", "katana", "masscan",
+    "rustscan", "gobuster", "ffuf", "ferox",
+    "subdomains", "portscan",
+}
+for _tid in _BACKGROUND:
+    if _tid in TOOLS:
+        TOOLS[_tid].background = True
+
+# Expected input type per tool → validated before the tool runs.
+_VALIDATE = {
+    "whois": "domain", "dns": "host", "subdomains": "domain", "dnstwist": "domain",
+    "dnsrecon": "domain", "sublist3r": "domain", "checkdmarc": "domain",
+    "theharvester": "domain", "gau": "domain", "geoip": "host", "shodan": "ip",
+    "email": "email", "holehe": "email", "h8mail": "email",
+    "username": "username", "sherlock_cli": "username", "maigret": "username",
+    "socialscan": "username", "phone": "phone", "phoneinfoga": "phone",
+    "revimg": "url", "techdetect": "host", "whatweb": "host", "wafw00f": "host",
+    "sslscan": "host", "portscan": "host",
+}
+for _tid, _v in _VALIDATE.items():
+    if _tid in TOOLS:
+        TOOLS[_tid].validate = _v
 
 
 def tools_in(category: str) -> list[Tool]:

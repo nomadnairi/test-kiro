@@ -27,10 +27,18 @@ SQLite) with role-based access, encrypted API keys and an audit log.
 ## Highlights
 
 - 🧭 **No commands** — the whole UI is buttons. Only `/start`, `/menu`, `/cancel` exist.
-- 🧰 **59 tools** in 8 categories, all generated from one registry.
+- 🧰 **78 tools** in 9 categories, all generated from one registry.
+- 🧩 **Combine workflows** — one tap chains several tools into a single report
+  (domain report, username profile, IP dossier).
+- ⏳ **Background execution** — slow CLIs run via the task engine; the chat isn't
+  frozen and the result arrives when it's ready.
+- ✅ **Input validation** — domains / IPs / emails / phones are checked before a
+  tool runs, with a clear hint on mistakes.
 - 🤖 **10 AI providers** with automatic fallback.
 - 📤 **8 export formats** — any result → a file, in one tap.
-- 🔐 **Secure by default** — whitelist, roles, AES-256-GCM key storage, audit trail.
+- 🔐 **Secure by default** — whitelist, roles, AES-256-GCM key storage, audit
+  trail, owner-only DB backup.
+- 🧪 **Tested** — `pytest` unit suite + offline smoke test, run in CI on every push.
 - 🧪 **Verifiable** — `smoke_test.py` checks every layer offline (no token needed).
 
 ## Quick start

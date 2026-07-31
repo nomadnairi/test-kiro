@@ -74,3 +74,17 @@ class Database:
         rows = await cur.fetchall()
         await cur.close()
         return list(rows)
+
+    async def snapshot(self) -> bytes:
+        """Consistent backup of the whole DB (VACUUM INTO a temp file)."""
+        import os
+        import tempfile
+
+        fd, tmp = tempfile.mkstemp(suffix=".sqlite3", dir="/tmp")
+        os.close(fd)
+        os.unlink(tmp)  # VACUUM INTO requires the target not to exist
+        try:
+            await self.conn.execute("VACUUM INTO ?", (tmp,))
+            return Path(tmp).read_bytes()
+        finally:
+            Path(tmp).unlink(missing_ok=True)

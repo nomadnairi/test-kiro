@@ -19,7 +19,7 @@ from ..container import Container
 from ..keyboards import cancel_menu, category_menu, export_menu, main_menu, result_menu
 from ..registry import Result, Tool, build_export, get_tool, save_last_report, strip_html
 from ..states import AIChat, ApiKeyFlow, ToolFlow
-from ..util import truncate
+from ..util import truncate, validate_input
 
 router = Router(name="menu")
 
@@ -183,10 +183,19 @@ async def cb_tool(cb: CallbackQuery, container: Container, state: FSMContext) ->
 async def on_input(message: Message, container: Container, state: FSMContext) -> None:
     data = await state.get_data()
     tool = get_tool(data.get("tool_id", ""))
-    await state.clear()
     if tool is None or tool.run is None:
+        await state.clear()
         await message.answer("Сессия истекла — открой /menu заново.")
         return
+    # Validate before running; on failure keep the state so the user can just
+    # resend a corrected value.
+    if tool.validate:
+        err = validate_input(tool.validate, message.text)
+        if err:
+            await message.answer(err + "\n\nОтправь ещё раз или нажми «Отмена».",
+                                 reply_markup=cancel_menu())
+            return
+    await state.clear()
     await message.chat.do("typing")
     await _run_and_reply(message, container, message.from_user.id, tool, message.text)
 
@@ -250,28 +259,67 @@ async def on_stray(message: Message, container: Container, role: str = "guest") 
 # --------------------------------------------------------------------------- #
 # shared runner
 # --------------------------------------------------------------------------- #
-async def _run_and_reply(message: Message, container: Container, uid: int,
-                         tool: Tool, arg: str) -> None:
-    try:
-        result: Result = await tool.run(container, uid, arg)
-    except Exception as exc:  # noqa: BLE001 — surface tool errors to the user
-        await message.answer(f"⚠️ Ошибка «{tool.label}»: {exc}",
-                             reply_markup=result_menu(tool.category))
-        return
+async def _remember(container: Container, uid: int, tool: Tool, arg: str,
+                    result: Result) -> None:
+    """Store the result so the user can re-export it in any format."""
+    report = result.report or {
+        "title": f"{tool.label}{f': {arg}' if arg else ''}",
+        "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "tags": ["deathbot", tool.category],
+        "sections": {tool.label: strip_html(result.text)},
+    }
+    await save_last_report(container, uid, report)
 
+
+async def _deliver(message: Message, placeholder: Message | None, container: Container,
+                   uid: int, tool: Tool, arg: str, result: Result) -> None:
     if result.file_bytes is not None and result.filename:
         await message.answer_document(
             BufferedInputFile(result.file_bytes, filename=result.filename),
             caption=result.text or None,
         )
-        await message.answer("Готово.", reply_markup=result_menu(tool.category))
+        done = "Готово."
+        if placeholder is not None:
+            await placeholder.edit_text(done, reply_markup=result_menu(tool.category))
+        else:
+            await message.answer(done, reply_markup=result_menu(tool.category))
+        return
+
+    await _remember(container, uid, tool, arg, result)
+    kb = result_menu(tool.category, exportable=True)
+    text = truncate(result.text)
+    if placeholder is not None:
+        await placeholder.edit_text(text, reply_markup=kb)
     else:
-        # Remember this result so the user can re-export it in any format.
-        await save_last_report(container, uid, {
-            "title": f"{tool.label}{f': {arg}' if arg else ''}",
-            "generated_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-            "tags": ["deathbot", tool.category],
-            "sections": {tool.label: strip_html(result.text)},
-        })
-        await message.answer(truncate(result.text),
-                             reply_markup=result_menu(tool.category, exportable=True))
+        await message.answer(text, reply_markup=kb)
+
+
+async def _run_and_reply(message: Message, container: Container, uid: int,
+                         tool: Tool, arg: str) -> None:
+    # Slow tools run through the task engine so the chat isn't frozen for minutes.
+    if tool.background:
+        placeholder = await message.answer(
+            f"⏳ <b>{tool.label}</b> — выполняется, это может занять пару минут…"
+        )
+
+        async def job() -> None:
+            try:
+                result = await tool.run(container, uid, arg)
+            except Exception as exc:  # noqa: BLE001
+                await placeholder.edit_text(
+                    f"⚠️ Ошибка «{tool.label}»: {exc}",
+                    reply_markup=result_menu(tool.category),
+                )
+                return
+            await _deliver(message, placeholder, container, uid, tool, arg, result)
+
+        container.engine.submit(job, timeout=420, retries=1)
+        return
+
+    try:
+        result = await tool.run(container, uid, arg)
+    except Exception as exc:  # noqa: BLE001 — surface tool errors to the user
+        await message.answer(f"⚠️ Ошибка «{tool.label}»: {exc}",
+                             reply_markup=result_menu(tool.category))
+        return
+    await _deliver(message, None, container, uid, tool, arg, result)

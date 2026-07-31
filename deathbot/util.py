@@ -59,3 +59,67 @@ async def run_command(cmd: list[str], timeout: int = 120, *,
 
 def truncate(text: str, limit: int = 3500) -> str:
     return text if len(text) <= limit else text[:limit] + "\n… (truncated)"
+
+
+# --------------------------------------------------------------------------- #
+# input validation
+# --------------------------------------------------------------------------- #
+import re  # noqa: E402
+
+_DOMAIN_RE = re.compile(r"^(?=.{1,253}$)([a-zA-Z0-9](-?[a-zA-Z0-9])*\.)+[a-zA-Z]{2,}$")
+_IPV4_RE = re.compile(r"^(\d{1,3})(\.\d{1,3}){3}$")
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+_USERNAME_RE = re.compile(r"^@?[A-Za-z0-9._-]{1,64}$")
+_PHONE_RE = re.compile(r"^\+?[0-9][0-9 ()\-]{5,19}$")
+
+_HINTS = {
+    "domain": "❌ Похоже, это не домен. Пример: <code>example.com</code>",
+    "host": "❌ Нужен домен или IP. Пример: <code>example.com</code> или <code>8.8.8.8</code>",
+    "ip": "❌ Похоже, это не IP-адрес. Пример: <code>8.8.8.8</code>",
+    "email": "❌ Похоже, это не email. Пример: <code>user@example.com</code>",
+    "url": "❌ Нужна ссылка или домен. Пример: <code>https://example.com</code>",
+    "username": "❌ Похоже, это не юзернейм (буквы, цифры, . _ -).",
+    "phone": "❌ Похоже, это не номер телефона. Пример: <code>+79161234567</code>",
+}
+
+
+def _strip_url(value: str) -> str:
+    v = re.sub(r"^https?://", "", value.strip(), flags=re.I)
+    return v.split("/")[0].split("?")[0]
+
+
+def _is_ipv4(value: str) -> bool:
+    m = _IPV4_RE.match(value)
+    return bool(m) and all(0 <= int(o) <= 255 for o in value.split("."))
+
+
+def _is_ip(value: str) -> bool:
+    return _is_ipv4(value) or (":" in value and len(value) <= 45)
+
+
+def _is_domain(value: str) -> bool:
+    return bool(_DOMAIN_RE.match(value))
+
+
+def validate_input(kind: str, value: str) -> str | None:
+    """Return an error message if ``value`` is not a valid ``kind``, else None."""
+    v = value.strip()
+    if not v:
+        return "❌ Пустой ввод."
+    ok = True
+    if kind == "domain":
+        ok = _is_domain(_strip_url(v))
+    elif kind == "ip":
+        ok = _is_ip(v)
+    elif kind == "host":
+        host = _strip_url(v)
+        ok = _is_domain(host) or _is_ip(host)
+    elif kind == "email":
+        ok = bool(_EMAIL_RE.match(v))
+    elif kind == "url":
+        ok = v.lower().startswith(("http://", "https://")) or _is_domain(_strip_url(v))
+    elif kind == "username":
+        ok = bool(_USERNAME_RE.match(v))
+    elif kind == "phone":
+        ok = bool(_PHONE_RE.match(v))
+    return None if ok else _HINTS.get(kind, "❌ Неверный формат ввода.")

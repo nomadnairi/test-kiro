@@ -27,16 +27,35 @@ def _as_int(value: str | None, default: int) -> int:
 class AIProviderKeys:
     openai: str = ""
     openai_base_url: str = "https://api.openai.com/v1"
+    openai_model: str = "gpt-4o-mini"
     anthropic: str = ""
+    anthropic_model: str = "claude-3-5-sonnet-latest"
     openrouter: str = ""
+    # OpenRouter model IDs are vendor-prefixed ("openai/gpt-4o-mini") — that
+    # naming is specific to OpenRouter and invalid on every other provider's
+    # own API, which is why each provider needs its OWN default model instead
+    # of one shared "default_model".
+    openrouter_model: str = "openai/gpt-4o-mini"
     groq: str = ""
+    groq_model: str = "llama-3.1-8b-instant"
     gemini: str = ""
+    gemini_model: str = "gemini-1.5-flash"
     deepseek: str = ""
+    deepseek_model: str = "deepseek-chat"
     grok: str = ""
+    grok_model: str = "grok-2-latest"
     anythingllm: str = ""
-    anythingllm_base_url: str = "http://localhost:3001/api/v1/openai"
-    ollama_base_url: str = "http://localhost:11434"
-    lmstudio_base_url: str = "http://localhost:1234/v1"
+    # Local-server providers default to EMPTY, not a guessed localhost URL —
+    # otherwise they are always "available" and always attempted even when no
+    # such server is running, which was silently eating the routing budget and
+    # cluttering error messages with unrelated "connection refused" noise. Set
+    # the *_BASE_URL env var explicitly to opt in.
+    anythingllm_base_url: str = ""
+    anythingllm_model: str = "default"
+    ollama_base_url: str = ""
+    ollama_model: str = "llama3"
+    lmstudio_base_url: str = ""
+    lmstudio_model: str = "local-model"
 
 
 @dataclass(slots=True)
@@ -116,21 +135,30 @@ def load_settings(
     if cfg_path.exists():
         raw = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
 
+    _defaults = AIProviderKeys()
     ai_keys = AIProviderKeys(
         openai=os.getenv("OPENAI_API_KEY", ""),
-        openai_base_url=os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1"),
+        openai_base_url=os.getenv("OPENAI_BASE_URL", _defaults.openai_base_url),
+        openai_model=os.getenv("OPENAI_MODEL", _defaults.openai_model),
         anthropic=os.getenv("ANTHROPIC_API_KEY", ""),
+        anthropic_model=os.getenv("CLAUDE_MODEL", _defaults.anthropic_model),
         openrouter=os.getenv("OPENROUTER_API_KEY", ""),
+        openrouter_model=os.getenv("OPENROUTER_MODEL", _defaults.openrouter_model),
         groq=os.getenv("GROQ_API_KEY", ""),
+        groq_model=os.getenv("GROQ_MODEL", _defaults.groq_model),
         gemini=os.getenv("GEMINI_API_KEY", ""),
+        gemini_model=os.getenv("GEMINI_MODEL", _defaults.gemini_model),
         deepseek=os.getenv("DEEPSEEK_API_KEY", ""),
+        deepseek_model=os.getenv("DEEPSEEK_MODEL", _defaults.deepseek_model),
         grok=os.getenv("GROK_API_KEY", "") or os.getenv("XAI_API_KEY", ""),
+        grok_model=os.getenv("GROK_MODEL", _defaults.grok_model),
         anythingllm=os.getenv("ANYTHINGLLM_API_KEY", ""),
-        anythingllm_base_url=os.getenv(
-            "ANYTHINGLLM_BASE_URL", "http://localhost:3001/api/v1/openai"
-        ),
-        ollama_base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-        lmstudio_base_url=os.getenv("LMSTUDIO_BASE_URL", "http://localhost:1234/v1"),
+        anythingllm_base_url=os.getenv("ANYTHINGLLM_BASE_URL", ""),
+        anythingllm_model=os.getenv("ANYTHINGLLM_MODEL", _defaults.anythingllm_model),
+        ollama_base_url=os.getenv("OLLAMA_BASE_URL", ""),
+        ollama_model=os.getenv("OLLAMA_MODEL", _defaults.ollama_model),
+        lmstudio_base_url=os.getenv("LMSTUDIO_BASE_URL", ""),
+        lmstudio_model=os.getenv("LMSTUDIO_MODEL", _defaults.lmstudio_model),
     )
 
     osint_keys = {

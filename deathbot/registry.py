@@ -319,7 +319,8 @@ async def _wf_person(c: "Container", uid: int, arg: str) -> Result:
 def _agent(agent_id: str, title: str):
     async def _run(c: "Container", uid: int, arg: str) -> Result:
         agent = c.agents[agent_id]
-        answer = await agent.run(arg)
+        user_keys = await c.ai.user_keys(uid)
+        answer = await agent.run(arg, user_keys=user_keys)
         await c.repos.audit.log(uid, f"agent.{agent_id}", arg[:60])
         return Result(f"<b>{escape(title)}</b>\n\n{escape(answer)}")
     return _run
@@ -335,9 +336,17 @@ async def _ai_reset(c: "Container", uid: int, _: str) -> Result:
 
 
 async def _ai_providers(c: "Container", uid: int, _: str) -> Result:
-    avail = c.ai.available_providers()
-    return Result("<b>ИИ-провайдеры</b>\nДоступны: "
-                  + (", ".join(avail) or "нет — добавь ключ в ⚙️ Настройках"))
+    rows = await c.ai.provider_status(uid)
+    lines = []
+    for r in rows:
+        mark = "✅" if r["available"] else "➖"
+        lines.append(f"{mark} <b>{escape(r['name'])}</b> · {escape(r['model'])} · {escape(r['source'])}")
+    has_any = any(r["available"] for r in rows)
+    footer = ("" if has_any else
+             "\n\nНи один провайдер не настроен. Добавь свой ключ через "
+             "⚙️ Настройки → ➕ Добавить ключ (id: openai, openrouter, groq, "
+             "deepseek, grok, claude, gemini) — или впиши ключ в .env владельцу бота.")
+    return Result("<b>ИИ-провайдеры</b>\n" + "\n".join(lines) + footer)
 
 
 async def _note_add(c: "Container", uid: int, arg: str) -> Result:

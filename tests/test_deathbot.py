@@ -12,6 +12,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from deathbot.ai.router import AIRouter
 from deathbot.config import load_settings
 from deathbot.container import Container
 from deathbot.core.security import Crypto
@@ -157,3 +158,100 @@ def test_db_snapshot_is_valid_sqlite():
 
     data = asyncio.run(scenario())
     assert data[:16] == b"SQLite format 3\x00"
+
+
+# --------------------------------------------------------------------------- #
+# AI router: provider identity, per-provider models, local-server opt-in,
+# per-user key override (the bugs reported: unreadable "openai-compatible"
+# errors, shared model breaking OpenAI/Groq/DeepSeek, keys added via the bot
+# UI never reaching the router)
+# --------------------------------------------------------------------------- #
+def test_provider_identity_is_distinct():
+    router = AIRouter(load_settings())
+    names = {pid: p.name for pid, p in router._providers.items()}
+    assert names["openai"] == "openai"
+    assert names["openrouter"] == "openrouter"
+    assert names["groq"] == "groq"
+    assert names["deepseek"] == "deepseek"
+    assert names["grok"] == "grok"
+    # No two providers should share the base class's generic name anymore.
+    assert len(set(names.values())) == len(names)
+    assert "openai-compatible" not in names.values()
+
+
+def test_per_provider_default_models_are_not_shared():
+    router = AIRouter(load_settings())
+    # OpenRouter uses vendor-prefixed slugs; real OpenAI/Groq/DeepSeek APIs 404
+    # on that naming, so each provider must carry its own default model.
+    assert router._models["openrouter"] == "openai/gpt-4o-mini"
+    assert router._models["openai"] == "gpt-4o-mini"
+    assert router._models["groq"] != router._models["openrouter"]
+    assert router._models["deepseek"] != router._models["openrouter"]
+
+
+def test_local_servers_are_opt_in_not_guessed():
+    router = AIRouter(load_settings())
+    # No env var set → these must NOT be "available" just because of a
+    # guessed localhost default; otherwise every chat silently wastes time
+    # trying to reach a server that was never configured.
+    assert router._providers["ollama"].available is False
+    assert router._providers["lmstudio"].available is False
+    assert router._providers["anythingllm"].available is False
+
+
+def test_resolution_order_prioritises_users_own_key():
+    router = AIRouter(load_settings())
+    order = router._resolution_order(None, {"claude": "sk-personal"})
+    assert order[0] == "claude"
+
+
+def test_user_key_builds_a_fresh_correctly_named_instance():
+    router = AIRouter(load_settings())
+    built = router._builders["openrouter"]("sk-user-key")
+    assert built.api_key == "sk-user-key"
+    assert built.name == "openrouter"
+    assert built is not router._providers["openrouter"]  # doesn't mutate the shared one
+
+
+def test_provider_status_reflects_a_user_key_with_no_env_key():
+    settings = load_settings()
+    settings.ai_keys.openrouter = ""  # make sure there's no env-configured key
+    router = AIRouter(settings)
+    row = next(r for r in router.provider_status({"openrouter": "sk-personal"})
+              if r["name"] == "openrouter")
+    assert row["available"] is True
+    assert row["source"] == "личный ключ"
+
+
+def test_ai_service_user_keys_filters_to_ai_provider_ids_only():
+    async def scenario():
+        with tempfile.TemporaryDirectory() as tmp:
+            s = load_settings()
+            s.database_path = str(Path(tmp) / "t.db")
+            c = Container.build(s)
+            await c.startup()
+            await c.access.register_seen(1, "u", "U")
+            await c.api_keys.set_key(1, "openrouter", "sk-or-123")
+            await c.api_keys.set_key(1, "shodan", "shodan-abc")  # not an AI id
+            keys = await c.ai.user_keys(1)
+            await c.shutdown()
+            return keys
+
+    assert asyncio.run(scenario()) == {"openrouter": "sk-or-123"}
+
+
+def test_osint_service_prefers_personal_key_over_env():
+    async def scenario():
+        with tempfile.TemporaryDirectory() as tmp:
+            s = load_settings()
+            s.database_path = str(Path(tmp) / "t.db")
+            s.osint_keys["shodan"] = "env-key"
+            c = Container.build(s)
+            await c.startup()
+            await c.access.register_seen(1, "u", "U")
+            await c.api_keys.set_key(1, "shodan", "personal-key")
+            resolved = await c.osint._key(1, "shodan")
+            await c.shutdown()
+            return resolved
+
+    assert asyncio.run(scenario()) == "personal-key"

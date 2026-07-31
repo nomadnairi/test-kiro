@@ -1,4 +1,9 @@
-"""OSINTService — wraps the OSINT modules with audit logging and light caching."""
+"""OSINTService — wraps the OSINT modules with audit logging and light caching.
+
+Per-user API keys added via the bot ("➕ Добавить ключ" with id shodan / hibp /
+abuseipdb / dehashed) take priority over whatever is configured in .env — same
+mechanism as the AI providers, so a key added through the UI works immediately.
+"""
 from __future__ import annotations
 
 import json
@@ -6,13 +11,26 @@ import json
 from ..config import Settings
 from ..modules import osint as m
 from ..repositories import Repositories
+from .apikey import ApiKeyService
+
+# Provider ids recognised as OSINT API keys (as opposed to AI provider ids),
+# kept in sync with the .env / config.osint_keys names.
+OSINT_KEY_IDS = {"shodan", "hibp", "abuseipdb", "dehashed", "virustotal",
+                 "hunter", "securitytrails"}
 
 
 class OSINTService:
-    def __init__(self, settings: Settings, repos: Repositories) -> None:
+    def __init__(self, settings: Settings, repos: Repositories,
+                api_keys: ApiKeyService) -> None:
         self.settings = settings
         self.repos = repos
-        self.keys = settings.osint_keys
+        self.api_keys = api_keys
+        self.env_keys = settings.osint_keys
+
+    async def _key(self, user_id: int, provider: str) -> str:
+        """A user's own key, falling back to the shared .env one."""
+        personal = await self.api_keys.get_key(user_id, provider)
+        return personal or self.env_keys.get(provider, "")
 
     async def _cached(self, key: str, ttl: int, producer):
         hit = await self.repos.cache.get(key)
@@ -45,7 +63,8 @@ class OSINTService:
 
     async def email(self, user_id: int, email: str) -> dict:
         await self._audit(user_id, "osint.email", email)
-        return await m.email_search(email, hibp_key=self.keys.get("hibp", ""))
+        hibp_key = await self._key(user_id, "hibp")
+        return await m.email_search(email, hibp_key=hibp_key)
 
     async def phone(self, user_id: int, number: str) -> dict:
         await self._audit(user_id, "osint.phone", number)
@@ -57,11 +76,13 @@ class OSINTService:
 
     async def shodan(self, user_id: int, ip: str) -> dict:
         await self._audit(user_id, "osint.shodan", ip)
-        return await m.shodan_host(ip, self.keys.get("shodan", ""))
+        key = await self._key(user_id, "shodan")
+        return await m.shodan_host(ip, key)
 
     async def threat_intel(self, user_id: int, indicator: str) -> dict:
         await self._audit(user_id, "osint.threatintel", indicator)
-        return await m.threat_intel(indicator, abuseipdb_key=self.keys.get("abuseipdb", ""))
+        key = await self._key(user_id, "abuseipdb")
+        return await m.threat_intel(indicator, abuseipdb_key=key)
 
     async def ioc(self, user_id: int, value: str) -> dict:
         await self._audit(user_id, "osint.ioc", value)
@@ -77,9 +98,15 @@ class OSINTService:
 
     async def leak(self, user_id: int, query: str) -> dict:
         await self._audit(user_id, "osint.leak", query)
+        dehashed_key = await self.api_keys.get_key(user_id, "dehashed")
+        if dehashed_key:
+            # A personal (paid) key changes the results — never let that leak
+            # into the shared cache used by everyone else.
+            return await m.leak_lookup(query, dehashed_key=dehashed_key)
+        env_key = self.env_keys.get("dehashed", "")
         return await self._cached(
             f"leakagg:{query.lower()}", 1800,
-            lambda: m.leak_lookup(query, dehashed_key=self.keys.get("dehashed", "")),
+            lambda: m.leak_lookup(query, dehashed_key=env_key),
         )
 
     async def name(self, user_id: int, fullname: str) -> dict:

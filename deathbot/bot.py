@@ -148,7 +148,7 @@ async def run(settings: Settings | None = None) -> None:
 
     log.info("DeathBot started (env=%s, owner=%s, AI providers=%s)",
              settings.env, settings.owner_id or "UNSET",
-             ", ".join(container.ai.available_providers()) or "none")
+             ", ".join(container.ai_router.available_providers()) or "none")
     try:
         await dp.start_polling(bot)
     finally:

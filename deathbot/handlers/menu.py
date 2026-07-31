@@ -159,7 +159,10 @@ async def cb_tool(cb: CallbackQuery, container: Container, state: FSMContext) ->
     if tool.kind == "apikey":
         await state.set_state(ApiKeyFlow.waiting_provider)
         await cb.message.edit_text(
-            "Какой провайдер? (openrouter, openai, claude, gemini, shodan, hibp…)",
+            "Какой провайдер?\n\n"
+            "<b>ИИ:</b> openai, openrouter, groq, deepseek, grok, claude, gemini\n"
+            "<b>OSINT:</b> shodan, hibp, abuseipdb, dehashed, virustotal, hunter, securitytrails\n\n"
+            "Ключ заработает сразу после сохранения, приоритет — над ключом в .env.",
             reply_markup=cancel_menu(),
         )
         await cb.answer()
@@ -238,6 +241,9 @@ async def on_key_provider(message: Message, state: FSMContext) -> None:
 
 @router.message(ApiKeyFlow.waiting_value, F.text & ~F.text.startswith("/"))
 async def on_key_value(message: Message, container: Container, state: FSMContext) -> None:
+    from ..services.ai import _AI_PROVIDER_IDS
+    from ..services.osint import OSINT_KEY_IDS
+
     data = await state.get_data()
     provider = data.get("provider", "unknown")
     await container.api_keys.set_key(message.from_user.id, provider, message.text.strip())
@@ -246,7 +252,15 @@ async def on_key_value(message: Message, container: Container, state: FSMContext
         await message.delete()  # scrub the plaintext key from the chat
     except Exception:  # noqa: BLE001
         pass
-    await message.answer(f"🔐 Ключ для {provider} сохранён (зашифрован).",
+
+    if provider in _AI_PROVIDER_IDS:
+        note = "используется в 🤖 ИИ и 🧠 Агентах."
+    elif provider in OSINT_KEY_IDS:
+        note = "используется в соответствующем инструменте OSINT."
+    else:
+        note = ("⚠️ не похоже на известный id — ни один инструмент его не использует. "
+               "Проверь список в подсказке выше.")
+    await message.answer(f"🔐 Ключ для «{provider}» сохранён (зашифрован) — {note}",
                          reply_markup=result_menu("settings"))
 
 

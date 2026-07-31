@@ -61,6 +61,7 @@ class Container:
         repos = Repositories.build(db)
         crypto = Crypto.from_settings(settings.secret_key, settings.absolute_key_path())
         ai_router = AIRouter(settings)
+        api_keys = ApiKeyService(repos, crypto)
 
         return cls(
             settings=settings,
@@ -72,10 +73,10 @@ class Container:
             users=UserService(repos),
             notes=NotesService(repos),
             todos=TodoService(repos),
-            api_keys=ApiKeyService(repos, crypto),
+            api_keys=api_keys,
             settings_svc=SettingsService(repos),
-            ai=AIService(settings, repos, ai_router),
-            osint=OSINTService(settings, repos),
+            ai=AIService(settings, repos, ai_router, api_keys),
+            osint=OSINTService(settings, repos, api_keys),
             pentest=PentestService(repos),
             report=ReportService(),
             export=ExportService(),

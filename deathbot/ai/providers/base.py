@@ -29,9 +29,16 @@ class ChatResponse:
 class AIProvider(abc.ABC):
     name: str = "base"
 
-    def __init__(self, model: str, timeout: int = 60) -> None:
+    def __init__(self, model: str, timeout: int = 60, name: str | None = None) -> None:
         self.model = model
         self.timeout = timeout
+        if name:
+            # Per-instance override — needed because several vendors (OpenAI,
+            # OpenRouter, Groq, DeepSeek, Grok, LM Studio, AnythingLLM) all
+            # share the OpenAICompatibleProvider class; without this every
+            # error message would say "openai-compatible" and be useless for
+            # telling which one actually failed.
+            self.name = name
 
     @property
     @abc.abstractmethod

@@ -35,7 +35,9 @@ SQLite) with role-based access, encrypted API keys and an audit log.
   frozen and the result arrives when it's ready.
 - ✅ **Input validation** — domains / IPs / emails / phones are checked before a
   tool runs, with a clear hint on mistakes.
-- 🤖 **10 AI providers** with automatic fallback.
+- 🤖 **10 AI providers**, each with its own default model, automatic fallback,
+  and a **personal key** users can add from the bot (⚙️ Настройки → ➕ Добавить
+  ключ) that works instantly — no restart, priority over the deployment's .env.
 - 📤 **8 export formats** — any result → a file, in one tap.
 - 🔐 **Secure by default** — whitelist, roles, AES-256-GCM key storage, audit
   trail, owner-only DB backup.

@@ -15,11 +15,12 @@ log = get_logger("ai.openai")
 
 
 class OpenAICompatibleProvider(AIProvider):
-    name = "openai-compatible"
+    name = "openai-compatible"  # overridden per instance — see __init__
 
     def __init__(self, api_key: str, base_url: str, model: str,
-                 timeout: int = 60, extra_headers: dict[str, str] | None = None) -> None:
-        super().__init__(model=model, timeout=timeout)
+                 timeout: int = 60, extra_headers: dict[str, str] | None = None,
+                 name: str | None = None) -> None:
+        super().__init__(model=model, timeout=timeout, name=name)
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.extra_headers = extra_headers or {}

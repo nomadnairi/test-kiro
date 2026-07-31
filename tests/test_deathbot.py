@@ -12,6 +12,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+import httpx
+
+from deathbot.ai.providers.base import error_detail
 from deathbot.ai.router import AIRouter
 from deathbot.config import load_settings
 from deathbot.container import Container
@@ -255,3 +258,28 @@ def test_osint_service_prefers_personal_key_over_env():
             return resolved
 
     assert asyncio.run(scenario()) == "personal-key"
+
+
+def _fake_response(status: int, json_body=None, text: str = "") -> httpx.Response:
+    kwargs = {"status_code": status, "request": httpx.Request("POST", "https://x/")}
+    if json_body is not None:
+        return httpx.Response(**kwargs, json=json_body)
+    return httpx.Response(**kwargs, text=text)
+
+
+def test_error_detail_extracts_vendor_message_not_bare_status():
+    # OpenRouter/OpenAI-style: {"error": {"message": "...", "code": 404}}
+    resp = _fake_response(404, json_body={
+        "error": {"message": "No endpoints found matching your data policy", "code": 404}
+    })
+    assert error_detail(resp) == "No endpoints found matching your data policy"
+
+
+def test_error_detail_falls_back_to_plain_text_body():
+    resp = _fake_response(500, text="upstream timeout")
+    assert error_detail(resp) == "upstream timeout"
+
+
+def test_error_detail_never_raises_on_garbage_body():
+    resp = _fake_response(400, text="<html>not json</html>")
+    assert isinstance(error_detail(resp), str) and error_detail(resp)

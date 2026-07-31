@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import httpx
 
-from .base import AIProvider, ChatMessage, ChatResponse, ProviderError
+from .base import AIProvider, ChatMessage, ChatResponse, ProviderError, error_detail
 
 
 class GeminiProvider(AIProvider):
@@ -44,7 +44,9 @@ class GeminiProvider(AIProvider):
                 resp.raise_for_status()
                 data = resp.json()
         except httpx.HTTPStatusError as exc:
-            raise ProviderError(f"gemini: HTTP {exc.response.status_code}") from exc
+            raise ProviderError(
+                f"gemini: HTTP {exc.response.status_code} — {error_detail(exc.response)}"
+            ) from exc
         except httpx.HTTPError as exc:
             raise ProviderError(f"gemini: {exc}") from exc
 

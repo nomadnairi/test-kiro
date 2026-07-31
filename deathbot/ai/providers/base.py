@@ -26,6 +26,29 @@ class ChatResponse:
     tokens: int = 0
 
 
+def error_detail(resp, limit: int = 300) -> str:
+    """Pull the vendor's own error message out of an HTTP error response body.
+
+    A bare status code ("HTTP 404") is nearly useless for diagnosing API
+    errors — OpenRouter/OpenAI/Anthropic/Gemini/etc. put the actual reason
+    (invalid model, no credits, data-policy opt-in required, rate limited…)
+    in a JSON body that was previously discarded entirely.
+    """
+    try:
+        data = resp.json()
+        err = data.get("error")
+        if isinstance(err, dict):
+            msg = err.get("message") or err.get("code") or str(err)
+        elif err:
+            msg = str(err)
+        else:
+            msg = data.get("message") or resp.text
+    except ValueError:
+        msg = resp.text
+    msg = (msg or "no details in response body").strip()
+    return msg if len(msg) <= limit else msg[:limit] + "…"
+
+
 class AIProvider(abc.ABC):
     name: str = "base"
 

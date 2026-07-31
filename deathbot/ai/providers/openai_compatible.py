@@ -9,7 +9,7 @@ from __future__ import annotations
 import httpx
 
 from ...logging_setup import get_logger
-from .base import AIProvider, ChatMessage, ChatResponse, ProviderError
+from .base import AIProvider, ChatMessage, ChatResponse, ProviderError, error_detail
 
 log = get_logger("ai.openai")
 
@@ -45,7 +45,10 @@ class OpenAICompatibleProvider(AIProvider):
                 resp.raise_for_status()
                 data = resp.json()
         except httpx.HTTPStatusError as exc:
-            raise ProviderError(f"{self.name}: HTTP {exc.response.status_code}") from exc
+            raise ProviderError(
+                f"{self.name}: HTTP {exc.response.status_code} — "
+                f"{error_detail(exc.response)}"
+            ) from exc
         except httpx.HTTPError as exc:
             raise ProviderError(f"{self.name}: {exc}") from exc
 

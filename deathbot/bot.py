@@ -1,6 +1,7 @@
 """Bot & Dispatcher assembly and the polling entrypoint."""
 from __future__ import annotations
 
+import httpx
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.exceptions import TelegramAPIError
@@ -45,6 +46,27 @@ def create_bot(settings: Settings) -> Bot:
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode=settings.parse_mode),
     )
+
+
+async def _check_openrouter_model(model_id: str, line) -> None:
+    """Best-effort: confirm a pinned OPENROUTER_MODEL actually exists on
+    OpenRouter's public catalogue, so a typo'd slug doesn't silently 404 every
+    chat call. Never fails the overall check — only OpenRouter needs to be
+    reachable, which this host may not have if it's offline/firewalled.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.get("https://openrouter.ai/api/v1/models")
+            resp.raise_for_status()
+            ids = {m.get("id") for m in resp.json().get("data", [])}
+    except httpx.HTTPError as exc:
+        print(f"  [i]   could not verify OPENROUTER_MODEL against openrouter.ai/models ({exc})")
+        return
+    if model_id in ids:
+        line(True, f"OPENROUTER_MODEL '{model_id}' found on openrouter.ai/models")
+    else:
+        line(False, f"OPENROUTER_MODEL '{model_id}' NOT found on openrouter.ai/models — "
+                    "copy the exact id from the model's page there (chat will 404 otherwise)")
 
 
 async def doctor(settings: Settings | None = None) -> int:
@@ -96,8 +118,12 @@ async def doctor(settings: Settings | None = None) -> int:
     finally:
         await bot.session.close()
 
-    providers = AIRouter(settings).available_providers()
+    router = AIRouter(settings)
+    providers = router.available_providers()
     print(f"  [i]   AI providers configured: {', '.join(providers) or 'none'}")
+
+    if settings.ai_keys.openrouter:
+        await _check_openrouter_model(settings.ai_keys.openrouter_model, line)
 
     print("\n" + ("All good — if the bot still ignores you, make sure only ONE instance "
                   "is running with this token." if problems == 0

@@ -6,6 +6,8 @@ from .dns import dns_lookup
 from .email import email_search
 from .geoip import geoip
 from .ioc import classify_ioc
+from .leakcheck import leak_lookup
+from .namesearch import name_search
 from .metadata import extract_exif
 from .phone import phone_search
 from .reverse_image import reverse_image
@@ -24,6 +26,8 @@ __all__ = [
     "email_search",
     "geoip",
     "classify_ioc",
+    "leak_lookup",
+    "name_search",
     "extract_exif",
     "phone_search",
     "reverse_image",

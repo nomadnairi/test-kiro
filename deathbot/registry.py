@@ -258,6 +258,61 @@ async def _wf_ip(c: "Container", uid: int, arg: str) -> Result:
     return _wf_result(f"Досье по IP {ip}", report, sections)
 
 
+async def _wf_person(c: "Container", uid: int, arg: str) -> Result:
+    """Identity dossier: pivot from a username through profiles → emails/phones →
+    leaks → names, aggregating every open data point into one report."""
+    from .util import extract_contacts
+
+    u = arg.strip().lstrip("@")
+    sections: dict[str, str] = {}
+    pool = ""  # combined raw output to mine for emails/phones
+
+    # 1) social footprint
+    for name, tid in [("Maigret", "maigret"), ("Sherlock", "sherlock_cli"),
+                      ("socialscan", "socialscan")]:
+        try:
+            d = await c.osint.cli(uid, tid, u)
+            text = d.get("hint", "") if d.get("installed") is False else d.get("output", "")
+            sections[name] = text or "(пусто)"
+            if d.get("installed") is not False:
+                pool += "\n" + text
+        except Exception as exc:  # noqa: BLE001
+            sections[name] = f"ошибка: {exc}"
+
+    # 2) pivot: emails & phones surfaced in the profiles
+    emails, phones = extract_contacts(pool)
+    if emails:
+        sections["📧 Найденные email"] = "\n".join(emails)
+    if phones:
+        sections["📱 Найденные телефоны"] = "\n".join(phones)
+
+    # 3) email intelligence (where used + leaks) for the first few
+    for em in emails[:3]:
+        try:
+            h = await c.osint.cli(uid, "holehe", em)
+            sections[f"Holehe · {em}"] = (
+                h.get("hint", "") if h.get("installed") is False else h.get("output", ""))
+        except Exception as exc:  # noqa: BLE001
+            sections[f"Holehe · {em}"] = f"ошибка: {exc}"
+        sections[f"Утечки · {em}"] = strip_html(human("", await c.osint.leak(uid, em)))
+
+    # 4) phone leaks
+    for ph in phones[:3]:
+        sections[f"Утечки · {ph}"] = strip_html(human("", await c.osint.leak(uid, ph)))
+
+    # 5) ФИО — the profile pool often carries display names; give ready search
+    #    links for the queried handle so the analyst can pin the real name.
+    sections["Поиск по имени (ссылки)"] = strip_html(human("", await c.osint.name(uid, u)))
+
+    sections["ℹ️ Заметка"] = (
+        "Автопереход ник→email→телефон работает настолько, насколько инструменты "
+        "(Maigret и др.) установлены и раскрыли контакты. Полные слитые записи и "
+        "надёжный поиск телефона по утечкам требуют платного ключа (Dehashed/LeakCheck Pro).")
+
+    report = _report(f"Досье по личности: {u}", ["person", u], sections)
+    return _wf_result(f"Досье по личности: {u}", report, sections)
+
+
 def _agent(agent_id: str, title: str):
     async def _run(c: "Container", uid: int, arg: str) -> Result:
         agent = c.agents[agent_id]
@@ -435,6 +490,9 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
     _t(id="wf_ip", label="📍 Досье по IP", category="workflows", module="osint",
        prompt="Отправь IP-адрес", run=_wf_ip, background=True, validate="ip",
        desc="Геолокация + репутация + Shodan → досье по IP"),
+    _t(id="wf_person", label="🕵️ Досье по личности", category="workflows", module="osint",
+       prompt="Отправь юзернейм", run=_wf_person, background=True, validate="username",
+       desc="Ник → соцсети → email → утечки/телефон → ФИО-ссылки → единый отчёт"),
 
     # ---- OSINT ----
     _t(id="whois", label="WHOIS", category="osint", module="osint",
@@ -463,6 +521,12 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
        kind="photo", prompt="Отправь фото (файлом — тогда EXIF сохранится полностью)"),
     _t(id="darknet", label="Даркнет", category="osint", module="osint",
        prompt="Отправь запрос", run=_osint("darknet", "Даркнет")),
+    _t(id="leak", label="Утечки", category="osint", module="osint",
+       prompt="Отправь email, ник или телефон", run=_osint("leak", "Утечки"),
+       desc="В каких утечках засветился email/ник/телефон (LeakCheck)"),
+    _t(id="fio", label="Поиск по ФИО", category="osint", module="osint",
+       prompt="Отправь имя (ФИО)", run=_osint("name", "Поиск по ФИО"),
+       desc="Готовые ссылки для поиска человека по имени (Google/VK/…)"),
 
     # ---- OSINT: реальные CLI-инструменты с GitHub ----
     _t(id="theharvester", label="theHarvester", category="osint", module="osint",

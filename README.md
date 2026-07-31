@@ -27,9 +27,10 @@ SQLite) with role-based access, encrypted API keys and an audit log.
 ## Highlights
 
 - 🧭 **No commands** — the whole UI is buttons. Only `/start`, `/menu`, `/cancel` exist.
-- 🧰 **78 tools** in 9 categories, all generated from one registry.
-- 🧩 **Combine workflows** — one tap chains several tools into a single report
-  (domain report, username profile, IP dossier).
+- 🧰 **81 tools** in 9 categories, all generated from one registry.
+- 🧩 **Combine workflows** — one tap chains several tools into a single report:
+  domain report, username profile, IP dossier, and a **person dossier** that
+  pivots username → social profiles → emails/phones → leaks → name-search links.
 - ⏳ **Background execution** — slow CLIs run via the task engine; the chat isn't
   frozen and the result arrives when it's ready.
 - ✅ **Input validation** — domains / IPs / emails / phones are checked before a

@@ -75,6 +75,15 @@ class OSINTService:
         await self._audit(user_id, "osint.darknet", query)
         return await m.darknet_search(query)
 
+    async def leak(self, user_id: int, query: str) -> dict:
+        await self._audit(user_id, "osint.leak", query)
+        return await self._cached(f"leak:{query.lower()}", 1800,
+                                  lambda: m.leak_lookup(query))
+
+    async def name(self, user_id: int, fullname: str) -> dict:
+        await self._audit(user_id, "osint.name", fullname)
+        return await m.name_search(fullname)
+
     def exif(self, image_bytes: bytes) -> dict:
         return m.extract_exif(image_bytes)
 

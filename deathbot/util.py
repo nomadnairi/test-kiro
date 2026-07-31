@@ -101,6 +101,23 @@ def _is_domain(value: str) -> bool:
     return bool(_DOMAIN_RE.match(value))
 
 
+_EMAIL_FIND_RE = re.compile(r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}")
+_PHONE_FIND_RE = re.compile(r"(?<!\d)(\+?\d[\d\s()\-]{7,17}\d)(?!\d)")
+
+
+def extract_contacts(text: str) -> tuple[list[str], list[str]]:
+    """Best-effort pull of emails and phone numbers out of free-form tool output."""
+    emails = sorted({m.lower() for m in _EMAIL_FIND_RE.findall(text)})
+    phones = []
+    seen: set[str] = set()
+    for raw in _PHONE_FIND_RE.findall(text):
+        digits = re.sub(r"\D", "", raw)
+        if 8 <= len(digits) <= 15 and digits not in seen:
+            seen.add(digits)
+            phones.append(("+" if raw.strip().startswith("+") else "") + digits)
+    return emails, phones
+
+
 def validate_input(kind: str, value: str) -> str | None:
     """Return an error message if ``value`` is not a valid ``kind``, else None."""
     v = value.strip()

@@ -77,8 +77,10 @@ class OSINTService:
 
     async def leak(self, user_id: int, query: str) -> dict:
         await self._audit(user_id, "osint.leak", query)
-        return await self._cached(f"leak:{query.lower()}", 1800,
-                                  lambda: m.leak_lookup(query))
+        return await self._cached(
+            f"leakagg:{query.lower()}", 1800,
+            lambda: m.leak_lookup(query, dehashed_key=self.keys.get("dehashed", "")),
+        )
 
     async def name(self, user_id: int, fullname: str) -> dict:
         await self._audit(user_id, "osint.name", fullname)

@@ -140,6 +140,9 @@ def load_settings(
         "hibp": os.getenv("HIBP_API_KEY", ""),
         "hunter": os.getenv("HUNTER_API_KEY", ""),
         "securitytrails": os.getenv("SECURITYTRAILS_API_KEY", ""),
+        # Optional, paid — only added to the leak aggregator if you hold a
+        # legitimate account. Left empty by default; nothing is auto-enabled.
+        "dehashed": os.getenv("DEHASHED_API_KEY", ""),
     }
 
     return Settings(

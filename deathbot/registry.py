@@ -116,6 +116,9 @@ FIELD_LABELS: dict[str, str] = {
     "unavailable": "занято", "availableCount": "свободно", "unavailableCount": "занято",
     "id": "ID", "role": "роль", "notes": "заметки", "todos": "задачи",
     "since": "с", "pending_update_count": "апдейтов в очереди",
+    "total_hits": "всего совпадений", "breaches": "утечки",
+    "fields": "поля", "found": "найдено", "infected_machines": "заражённых устройств",
+    "credentials_on_machine": "учёток на устройстве", "entries": "записи",
 }
 
 

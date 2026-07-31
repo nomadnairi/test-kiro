@@ -27,18 +27,44 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ---------------------------------------------------------------------------
+# Stage 1b: gobuild — compile the Go OSINT CLIs (gau, phoneinfoga)
+# ---------------------------------------------------------------------------
+FROM golang:1.22-bookworm AS gobuild
+ENV CGO_ENABLED=0 GOBIN=/out
+RUN mkdir -p /out \
+    && go install github.com/lc/gau/v2/cmd/gau@latest \
+    && go install github.com/sundowndev/phoneinfoga/v2@latest
+
+# ---------------------------------------------------------------------------
 # Stage 2: runtime — minimal, non-root, signal-correct
 # ---------------------------------------------------------------------------
 FROM python:${PYTHON_VERSION} AS runtime
 
-# tini  → correct signal handling / zombie reaping for the long-running poller
-# procps→ pgrep for the healthcheck
-# whois → makes the WHOIS tool use the real client instead of the TCP fallback
-# nmap  → makes the Port Scan tool use nmap instead of the asyncio fallback
+# System packages:
+#   tini   → signal handling / zombie reaping for the long-running poller
+#   procps → pgrep for the healthcheck
+#   whois  → real WHOIS client (else the tool uses a TCP fallback)
+#   nmap   → real Port Scan (else an asyncio fallback)
+#   whatweb→ website fingerprint OSINT tool
+#   git/pipx → install the Python OSINT CLIs in isolated environments
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        tini procps whois nmap ca-certificates \
+        tini procps whois nmap whatweb git ca-certificates pipx \
     && rm -rf /var/lib/apt/lists/*
+
+# pipx installs each OSINT CLI into its own venv (no dependency clashes with the
+# bot's runtime) and drops the entrypoints into /usr/local/bin (on PATH for all
+# users). Kept in one layer; failures in a single tool don't abort the build.
+ENV PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin
+RUN for pkg in \
+        theHarvester sherlock-project holehe maigret socialscan h8mail \
+        dnstwist dnsrecon sublist3r checkdmarc wafw00f metafinder ; do \
+        pipx install "$pkg" || echo "WARN: pipx install $pkg failed (tool will be reported as not installed)"; \
+    done \
+    && rm -rf /root/.cache
+
+# Go OSINT binaries.
+COPY --from=gobuild /out/gau /out/phoneinfoga /usr/local/bin/
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

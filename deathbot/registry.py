@@ -66,6 +66,7 @@ class Tool:
     kind: str = "input"               # input | instant | chat | photo | apikey
     prompt: str | None = None
     run: Callable[["Container", int, str], Awaitable[Result]] | None = None
+    desc: str = ""                    # one-line "what it does", shown on tap
 
 
 # --------------------------------------------------------------------------- #
@@ -163,10 +164,24 @@ def _pentest_native(method: str, title: str):
     return _run
 
 
+def _cli_result(title: str, arg: str, data: dict) -> Result:
+    if data.get("installed") is False:
+        return Result(f"<b>{escape(title)}</b>\n⚠️ {escape(data.get('hint', 'инструмент не установлен'))}")
+    if data.get("error"):
+        return Result(f"<b>{escape(title)}</b>\n⚠️ {escape(str(data['error']))}")
+    # Render just the command output as a <pre> block (raw_keys → preformatted).
+    return Result(human(f"{title}: {arg}", {"output": data.get("output", "(пусто)")}))
+
+
 def _external(tool_id: str, title: str):
     async def _run(c: "Container", uid: int, arg: str) -> Result:
-        data = await c.pentest.external(uid, tool_id, arg)
-        return Result(human(f"{title}: {arg}", data))
+        return _cli_result(title, arg, await c.pentest.external(uid, tool_id, arg))
+    return _run
+
+
+def _osint_cli(tool_id: str, title: str):
+    async def _run(c: "Container", uid: int, arg: str) -> Result:
+        return _cli_result(title, arg, await c.osint.cli(uid, tool_id, arg))
     return _run
 
 
@@ -355,6 +370,53 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
     _t(id="darknet", label="Даркнет", category="osint", module="osint",
        prompt="Отправь запрос", run=_osint("darknet", "Даркнет")),
 
+    # ---- OSINT: реальные CLI-инструменты с GitHub ----
+    _t(id="theharvester", label="theHarvester", category="osint", module="osint",
+       prompt="Отправь домен", run=_osint_cli("theharvester", "theHarvester"),
+       desc="Сбор email, поддоменов и хостов из открытых источников"),
+    _t(id="sherlock_cli", label="Sherlock", category="osint", module="osint",
+       prompt="Отправь юзернейм", run=_osint_cli("sherlock_cli", "Sherlock"),
+       desc="Поиск юзернейма по сотням соцсетей и сайтов"),
+    _t(id="holehe", label="Holehe", category="osint", module="osint",
+       prompt="Отправь email", run=_osint_cli("holehe", "Holehe"),
+       desc="Где зарегистрирован email (по восстановлению пароля)"),
+    _t(id="maigret", label="Maigret", category="osint", module="osint",
+       prompt="Отправь юзернейм", run=_osint_cli("maigret", "Maigret"),
+       desc="Юзернейм на 2500+ сайтах + данные из профилей"),
+    _t(id="socialscan", label="socialscan", category="osint", module="osint",
+       prompt="Отправь email или юзернейм", run=_osint_cli("socialscan", "socialscan"),
+       desc="Занятость email/username на популярных платформах"),
+    _t(id="h8mail", label="h8mail", category="osint", module="osint",
+       prompt="Отправь email", run=_osint_cli("h8mail", "h8mail"),
+       desc="Поиск email в публичных утечках и дампах"),
+    _t(id="dnstwist", label="dnstwist", category="osint", module="osint",
+       prompt="Отправь домен", run=_osint_cli("dnstwist", "dnstwist"),
+       desc="Домены-двойники: тайпсквоттинг и фишинг"),
+    _t(id="dnsrecon", label="dnsrecon", category="osint", module="osint",
+       prompt="Отправь домен", run=_osint_cli("dnsrecon", "dnsrecon"),
+       desc="Перечисление DNS-записей, зон и поддоменов"),
+    _t(id="sublist3r", label="Sublist3r", category="osint", module="osint",
+       prompt="Отправь домен", run=_osint_cli("sublist3r", "Sublist3r"),
+       desc="Поиск поддоменов через поисковые системы"),
+    _t(id="checkdmarc", label="checkdmarc", category="osint", module="osint",
+       prompt="Отправь домен", run=_osint_cli("checkdmarc", "checkdmarc"),
+       desc="Почтовая защита домена: SPF / DKIM / DMARC"),
+    _t(id="wafw00f", label="wafw00f", category="osint", module="web",
+       prompt="Отправь ссылку/домен", run=_osint_cli("wafw00f", "wafw00f"),
+       desc="Определение WAF / файрвола перед сайтом"),
+    _t(id="metafinder", label="MetaFinder", category="osint", module="osint",
+       prompt="Отправь домен", run=_osint_cli("metafinder", "MetaFinder"),
+       desc="Метаданные (авторы, софт) из публичных документов домена"),
+    _t(id="whatweb", label="WhatWeb", category="osint", module="web",
+       prompt="Отправь ссылку/домен", run=_osint_cli("whatweb", "WhatWeb"),
+       desc="Фингерпринт технологий, CMS и заголовков сайта"),
+    _t(id="gau", label="gau", category="osint", module="osint",
+       prompt="Отправь домен", run=_osint_cli("gau", "gau"),
+       desc="Все известные URL домена (Wayback, OTX, CommonCrawl)"),
+    _t(id="phoneinfoga", label="PhoneInfoga", category="osint", module="osint",
+       prompt="Отправь номер телефона (+код…)", run=_osint_cli("phoneinfoga", "PhoneInfoga"),
+       desc="OSINT по номеру телефона: оператор, тип, следы в сети"),
+
     # ---- Pentest ----
     _t(id="portscan", label="Скан портов", category="pentest", module="recon",
        prompt="Отправь хост (только с разрешения владельца)",
@@ -455,6 +517,68 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
     _t(id="audit", label="Журнал", category="admin", module="audit",
        kind="instant", run=_audit),
 ]}
+
+# Descriptions for the built-in tools (the GitHub CLIs above set desc inline).
+# Attached after construction to keep the tool table above readable.
+DESCRIPTIONS: dict[str, str] = {
+    # OSINT (native)
+    "whois": "Данные о домене: регистратор, даты, серверы имён",
+    "dns": "A/AAAA-записи хоста и обратная запись (PTR)",
+    "subdomains": "Поддомены домена через Certificate Transparency (crt.sh)",
+    "username": "Быстрая проверка юзернейма по популярным сайтам",
+    "email": "Проверка email: формат, Gravatar, утечки (HIBP)",
+    "phone": "Разбор номера телефона: страна, формат E.164",
+    "geoip": "Геолокация IP: страна, город, провайдер, координаты",
+    "shodan": "Данные Shodan по IP: порты, сервисы, уязвимости",
+    "threatintel": "Репутация индикатора (URLhaus, AbuseIPDB)",
+    "ioc": "Определение типа индикатора и что с ним проверить",
+    "revimg": "Ссылки для поиска по изображению (Google/Yandex/…)",
+    "exif": "Метаданные и GPS из отправленного фото",
+    "darknet": "Заглушка: краулинг даркнета отключён (безопасность)",
+    # Pentest
+    "portscan": "Скан открытых портов (nmap или встроенный)",
+    "sslscan": "Информация о TLS-сертификате и сроках",
+    "techdetect": "Технологии сайта по заголовкам и телу ответа",
+    "subfinder": "Пассивный сбор поддоменов (ProjectDiscovery)",
+    "amass": "Комбайн для картирования поверхности атаки",
+    "httpx": "HTTP-пробинг: статусы, заголовки, заголовки",
+    "naabu": "Быстрый сканер портов (ProjectDiscovery)",
+    "nuclei": "Сканер уязвимостей по шаблонам",
+    "katana": "Веб-краулер для сбора ссылок",
+    "masscan": "Массовый сканер портов",
+    "rustscan": "Очень быстрый сканер портов",
+    "gobuster": "Брутфорс поддоменов и директорий",
+    "ffuf": "Веб-фаззер (директории, параметры)",
+    "ferox": "Рекурсивный поиск контента на сайте",
+    # AI
+    "ai_ask": "Одиночный вопрос к ИИ",
+    "ai_chat": "Диалог с ИИ с сохранением контекста",
+    "ai_providers": "Список доступных ИИ-провайдеров",
+    "ai_reset": "Очистить историю диалога с ИИ",
+    # Agents
+    "ag_general": "Универсальный помощник",
+    "ag_osint": "Агент планирует OSINT по цели",
+    "ag_recon": "Агент строит план разведки",
+    "ag_report": "Агент собирает отчёт из находок",
+    "ag_threat": "Агент оценивает угрозу по индикаторам",
+    "ag_code": "Агент пишет и ревьюит код",
+    "ag_research": "Агент-исследователь с рассуждением",
+    "ag_planner": "Агент составляет пошаговый план",
+    # Productivity / settings / admin
+    "note_add": "Сохранить заметку", "note_list": "Показать заметки",
+    "todo_add": "Добавить задачу", "todo_list": "Показать задачи",
+    "todo_done": "Отметить задачу выполненной",
+    "profile": "Твой профиль и статистика",
+    "keys": "Список сохранённых API-ключей",
+    "addkey": "Добавить зашифрованный API-ключ",
+    "setprov": "Выбрать ИИ-провайдера по умолчанию",
+    "users": "Список пользователей", "grant": "Выдать пользователю роль",
+    "ban": "Забанить пользователя", "unban": "Снять бан",
+    "audit": "Последние действия из журнала",
+}
+for _tid, _d in DESCRIPTIONS.items():
+    if _tid in TOOLS:
+        TOOLS[_tid].desc = _d
 
 
 def tools_in(category: str) -> list[Tool]:

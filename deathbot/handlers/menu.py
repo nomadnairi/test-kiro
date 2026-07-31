@@ -6,6 +6,7 @@ Only /start, /menu and /cancel exist to bootstrap or reset the interface.
 from __future__ import annotations
 
 import io
+from html import escape as escape_html
 
 from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
@@ -112,12 +113,17 @@ async def cb_category(cb: CallbackQuery, container: Container, state: FSMContext
                       role: str = "guest") -> None:
     await state.clear()
     category = cb.data.split(":", 1)[1]
-    from ..registry import CATEGORIES
+    from ..registry import CATEGORIES, tools_in
     label = dict(CATEGORIES).get(category, category)
-    await cb.message.edit_text(
-        f"{label}\nВыбери инструмент:",
-        reply_markup=category_menu(category, _visible(container, role)),
+    vis = _visible(container, role)
+    # Legend: name — what it does, so the user knows each tool before tapping.
+    legend = "\n".join(
+        f"• <b>{escape_html(t.label)}</b> — {escape_html(t.desc)}" if t.desc
+        else f"• <b>{escape_html(t.label)}</b>"
+        for t in tools_in(category) if vis(t.module)
     )
+    text = f"{label}\n\n{legend}\n\nВыбери инструмент 👇" if legend else f"{label}\nВыбери инструмент:"
+    await cb.message.edit_text(text[:4000], reply_markup=category_menu(category, vis))
     await cb.answer()
 
 
@@ -162,7 +168,11 @@ async def cb_tool(cb: CallbackQuery, container: Container, state: FSMContext) ->
     # input / photo → stash the tool and prompt
     await state.set_state(ToolFlow.waiting_photo if tool.kind == "photo" else ToolFlow.waiting_input)
     await state.update_data(tool_id=tool.id, category=tool.category)
-    await cb.message.edit_text(f"<b>{tool.label}</b>\n{tool.prompt}", reply_markup=cancel_menu())
+    parts = [f"<b>{tool.label}</b>"]
+    if tool.desc:
+        parts.append(f"<i>{tool.desc}</i>")
+    parts.append(f"\n{tool.prompt}")
+    await cb.message.edit_text("\n".join(parts), reply_markup=cancel_menu())
     await cb.answer()
 
 

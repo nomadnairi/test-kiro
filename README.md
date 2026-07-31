@@ -87,7 +87,10 @@ are generated automatically. No new command, no new handler.
 
 ## Tools
 
-### 🔎 OSINT (13)
+### 🔎 OSINT (28)
+
+**Built-in (13)**
+
 | Tool | Does | Needs |
 |---|---|---|
 | WHOIS · DNS · Subdomains | domain intel (crt.sh for subs) | — |
@@ -95,6 +98,23 @@ are generated automatically. No new command, no new handler.
 | GeoIP · Shodan | IP location & exposure | Shodan key |
 | Threat Intel · IOC | reputation & indicator triage | AbuseIPDB key |
 | Reverse Image · EXIF · Darknet | image OSINT & metadata | — |
+
+**Real GitHub CLIs (15)** — installed in the Docker image, each button labelled
+with what it does:
+
+| Tool | Does |
+|---|---|
+| theHarvester | emails / subdomains / hosts from public sources |
+| Sherlock · Maigret | hunt a username across hundreds / 2500+ sites |
+| Holehe · socialscan | where an email / username is registered |
+| h8mail | email in public breaches & leaks |
+| Sublist3r · dnsrecon | subdomain & DNS enumeration |
+| dnstwist | look-alike (typosquat / phishing) domains |
+| checkdmarc | domain mail security (SPF / DKIM / DMARC) |
+| wafw00f · WhatWeb | WAF detection · web tech fingerprint |
+| MetaFinder | metadata from a domain's public documents |
+| gau | known URLs (Wayback / OTX / CommonCrawl) |
+| PhoneInfoga | phone-number OSINT |
 
 ### 🛠 Pentest (14) · *authorised targets only*
 | Native (always work) | External CLIs (run if installed) |
@@ -136,7 +156,7 @@ deathbot/
 ├─ services/          business logic (12 services)
 ├─ repositories/      all SQL, one class per table (10)
 ├─ modules/
-│  ├─ osint/          13 OSINT tools
+│  ├─ osint/          28 OSINT tools (13 built-in + 15 GitHub CLIs)
 │  └─ pentest/        14 pentest tools
 ├─ ai/                provider abstraction + router (10 providers)
 ├─ agents/            8 AI agents

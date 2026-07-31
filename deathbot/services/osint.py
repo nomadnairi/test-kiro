@@ -77,3 +77,11 @@ class OSINTService:
 
     def exif(self, image_bytes: bytes) -> dict:
         return m.extract_exif(image_bytes)
+
+    async def cli(self, user_id: int, tool_id: str, target: str) -> dict:
+        """Run a real OSINT CLI tool from GitHub (installed in the image)."""
+        await self._audit(user_id, f"osint.{tool_id}", target)
+        return await m.run_cli_tool(tool_id, target)
+
+    def cli_tools(self) -> dict[str, str]:
+        return m.describe_cli()

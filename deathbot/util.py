@@ -19,22 +19,32 @@ def has_binary(name: str) -> bool:
     return shutil.which(name) is not None
 
 
-async def run_command(cmd: list[str], timeout: int = 120) -> CommandResult:
-    """Run an external tool, capturing output with a hard timeout."""
+async def run_command(cmd: list[str], timeout: int = 120, *,
+                      cwd: str | None = None, stdin: str | None = None) -> CommandResult:
+    """Run an external tool, capturing output with a hard timeout.
+
+    ``cwd`` lets tools that write files land in a writable dir (the container's
+    /app is read-only). ``stdin`` feeds input to tools that read from it.
+    """
     if not cmd or not has_binary(cmd[0]):
         return CommandResult(False, "", f"{cmd[0] if cmd else '?'} not installed",
                              None, missing=True)
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
+            stdin=asyncio.subprocess.PIPE if stdin is not None else None,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
+            cwd=cwd,
         )
     except OSError as exc:
         return CommandResult(False, "", str(exc), None, missing=True)
 
     try:
-        out, err = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+        out, err = await asyncio.wait_for(
+            proc.communicate(stdin.encode() if stdin is not None else None),
+            timeout=timeout,
+        )
     except asyncio.TimeoutError:
         proc.kill()
         return CommandResult(False, "", f"timed out after {timeout}s", None)

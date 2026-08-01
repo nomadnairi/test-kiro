@@ -19,3 +19,6 @@ class SettingsService:
     async def all(self, user_id: int) -> dict[str, str]:
         stored = await self.repos.settings.all(user_id)
         return {**DEFAULTS, **stored}
+
+    async def reset(self, user_id: int) -> None:
+        await self.repos.settings.delete_all(user_id)

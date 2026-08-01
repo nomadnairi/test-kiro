@@ -70,8 +70,8 @@ async def main() -> None:
             routed_ok = True
         check("AI router graceful w/o keys", routed_ok)
 
-        # agents (all 8)
-        check("agents registered (8)", len(container.agents) == 8, ", ".join(sorted(container.agents)))
+        # agents (all 16)
+        check("agents registered (16)", len(container.agents) == 16, ", ".join(sorted(container.agents)))
 
         # export — all 6 formats produce bytes
         rep = container.report.build("t", {"a": {"x": 1}})
@@ -82,8 +82,11 @@ async def main() -> None:
         # registry integrity
         need_run = [t.id for t in TOOLS.values() if t.kind in ("input", "instant") and t.run is None]
         check("registry: every runnable tool has run()", not need_run, str(need_run))
-        check("registry: 8 categories populated", all(tools_in(c) for c, _ in CATEGORIES),
-              f"{len(TOOLS)} tools")
+        # "custom" starts empty by design — tools land there only after the
+        # owner installs one via ➕ Установить инструмент (plugins.py).
+        static_categories = [(c, l) for c, l in CATEGORIES if c != "custom"]
+        check("registry: static categories populated",
+              all(tools_in(c) for c, _ in static_categories), f"{len(TOOLS)} tools")
 
         # keyboards
         vis = lambda m: container.access.role_can_use("owner", m)  # noqa: E731

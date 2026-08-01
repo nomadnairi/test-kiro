@@ -23,3 +23,11 @@ class SettingsRepository(BaseRepository):
             "SELECT key, value FROM settings WHERE user_id = ?", (user_id,)
         )
         return {r["key"]: r["value"] for r in rows}
+
+    async def delete(self, user_id: int, key: str) -> None:
+        await self.db.execute(
+            "DELETE FROM settings WHERE user_id = ? AND key = ?", (user_id, key)
+        )
+
+    async def delete_all(self, user_id: int) -> None:
+        await self.db.execute("DELETE FROM settings WHERE user_id = ?", (user_id,))

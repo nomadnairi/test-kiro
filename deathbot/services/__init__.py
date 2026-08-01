@@ -7,6 +7,7 @@ from .notes import NotesService
 from .notification import NotificationService
 from .osint import OSINTService
 from .pentest import PentestService
+from .plugins import PluginService
 from .report import ReportService
 from .settings import SettingsService
 from .todo import TodoService
@@ -22,6 +23,7 @@ __all__ = [
     "NotificationService",
     "OSINTService",
     "PentestService",
+    "PluginService",
     "ReportService",
     "SettingsService",
     "TodoService",

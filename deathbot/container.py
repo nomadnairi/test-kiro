@@ -24,6 +24,7 @@ from .services import (
     NotificationService,
     OSINTService,
     PentestService,
+    PluginService,
     ReportService,
     SettingsService,
     TodoService,
@@ -48,6 +49,7 @@ class Container:
     ai: AIService
     osint: OSINTService
     pentest: PentestService
+    plugins: PluginService
     report: ReportService
     export: ExportService
     engine: TaskEngine
@@ -78,6 +80,7 @@ class Container:
             ai=AIService(settings, repos, ai_router, api_keys),
             osint=OSINTService(settings, repos, api_keys),
             pentest=PentestService(repos),
+            plugins=PluginService(repos),
             report=ReportService(),
             export=ExportService(),
             engine=TaskEngine(workers=4),
@@ -89,6 +92,7 @@ class Container:
         await self.db.init_schema()
         await self.engine.start()
         await self.background.start()
+        await self.plugins.bootstrap()
 
     async def shutdown(self) -> None:
         await self.background.stop()

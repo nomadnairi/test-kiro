@@ -102,6 +102,20 @@ CREATE TABLE IF NOT EXISTS cache (
     expires_at    TEXT
 );
 
+-- Tools the owner installed at runtime from a pip/git spec (pipx, isolated
+-- venv on the persistent volume). Reloaded into the live registry on boot.
+CREATE TABLE IF NOT EXISTS custom_tools (
+    id            TEXT PRIMARY KEY,             -- slug used as the Tool id
+    label         TEXT NOT NULL,
+    description   TEXT NOT NULL DEFAULT '',
+    spec          TEXT NOT NULL,                -- pip/pipx install spec
+    package_name  TEXT NOT NULL,                -- resolved pipx venv name (for uninstall)
+    binary_path   TEXT NOT NULL,                -- absolute path, verified at install time
+    created_by    INTEGER NOT NULL,
+    created_at    TEXT NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY(created_by) REFERENCES users(id) ON DELETE CASCADE
+);
+
 CREATE INDEX IF NOT EXISTS idx_notes_user   ON notes(user_id);
 CREATE INDEX IF NOT EXISTS idx_todos_user   ON todos(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_user   ON audit_logs(user_id);

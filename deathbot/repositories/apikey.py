@@ -31,3 +31,6 @@ class ApiKeyRepository(BaseRepository):
         await self.db.execute(
             "DELETE FROM api_keys WHERE user_id = ? AND provider = ?", (user_id, provider)
         )
+
+    async def delete_all(self, user_id: int) -> None:
+        await self.db.execute("DELETE FROM api_keys WHERE user_id = ?", (user_id,))

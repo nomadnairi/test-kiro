@@ -33,3 +33,7 @@ class ApiKeyService:
     async def delete(self, user_id: int, provider: str) -> None:
         await self.repos.api_keys.delete(user_id, provider.lower())
         await self.repos.audit.log(user_id, "apikey.delete", provider)
+
+    async def delete_all(self, user_id: int) -> None:
+        await self.repos.api_keys.delete_all(user_id)
+        await self.repos.audit.log(user_id, "apikey.delete_all", "")

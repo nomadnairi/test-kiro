@@ -47,6 +47,7 @@ CATEGORIES: list[tuple[str, str]] = [
     ("agents", "🧠 Агенты"),
     ("productivity", "📝 Заметки и задачи"),
     ("export", "📤 Экспорт"),
+    ("custom", "🧩 Свои инструменты"),
     ("settings", "⚙️ Настройки"),
     ("admin", "🛡 Админ"),
 ]
@@ -130,6 +131,7 @@ FIELD_LABELS: dict[str, str] = {
     "spam": "спам", "first_seen": "впервые замечен", "last_seen": "последний раз замечен",
     "service": "сервис", "confidence": "уверенность", "match": "фрагмент",
     "line": "строка", "chars_scanned": "символов проверено",
+    "label": "название", "spec": "источник", "binary": "бинарник", "tools": "инструменты",
 }
 
 
@@ -201,6 +203,21 @@ def _external(tool_id: str, title: str):
 def _osint_cli(tool_id: str, title: str):
     async def _run(c: "Container", uid: int, arg: str) -> Result:
         return _cli_result(title, arg, await c.osint.cli(uid, tool_id, arg))
+    return _run
+
+
+def _custom_cli(binary_path: str, title: str):
+    """Run-builder for owner-installed tools (see services/plugins.py)."""
+    async def _run(c: "Container", uid: int, arg: str) -> Result:
+        from .util import run_command
+        await c.repos.audit.log(uid, f"custom.{title}", arg)
+        res = await run_command([binary_path, arg], timeout=180, cwd="/tmp")
+        if res.missing:
+            return Result(f"<b>{escape(title)}</b>\n⚠️ Бинарник пропал с диска "
+                          f"(volume пересоздан?) — переустанови инструмент.")
+        return _cli_result(title, arg, {
+            "installed": True, "output": (res.stdout or res.stderr).strip() or "(пустой вывод)",
+        })
     return _run
 
 
@@ -341,6 +358,16 @@ async def _ai_ask(c: "Container", uid: int, arg: str) -> Result:
     return Result(escape(await c.ai.ask(uid, arg)))
 
 
+def _ai_mode(instruction: str, title: str):
+    """One-shot AI utility (translate/summarize/review/…) — real model call,
+    just a fixed instruction instead of a free-form question."""
+    async def _run(c: "Container", uid: int, arg: str) -> Result:
+        answer = await c.ai.run_mode(uid, instruction, arg)
+        await c.repos.audit.log(uid, f"ai.mode.{title}", arg[:60])
+        return Result(f"<b>{escape(title)}</b>\n\n{escape(answer)}")
+    return _run
+
+
 async def _ai_reset(c: "Container", uid: int, _: str) -> Result:
     await c.ai.reset(uid)
     return Result("🧹 История диалога очищена.")
@@ -393,6 +420,97 @@ async def _todo_done(c: "Container", uid: int, arg: str) -> Result:
     return Result("☑️ Выполнено." if ok else "Не найдено.")
 
 
+def _split_id_and_text(arg: str) -> tuple[int | None, str]:
+    """Parse the "<id> | <new text>" convention shared by all *_edit tools."""
+    id_part, sep, rest = arg.partition("|")
+    id_part = id_part.strip()
+    if not sep or not id_part.isdigit():
+        return None, ""
+    return int(id_part), rest.strip()
+
+
+async def _note_view(c: "Container", uid: int, arg: str) -> Result:
+    if not arg.strip().isdigit():
+        return Result("Отправь номер заметки (число).")
+    note = await c.notes.get(uid, int(arg.strip()))
+    if note is None:
+        return Result("Заметка не найдена.")
+    title = escape(note["title"] or "без названия")
+    body = escape(note["body"] or "")
+    return Result(f"<b>#{note['id']} {title}</b>\n\n{body}" if body else f"<b>#{note['id']} {title}</b>")
+
+
+async def _note_edit(c: "Container", uid: int, arg: str) -> Result:
+    note_id, text = _split_id_and_text(arg)
+    if note_id is None or not text:
+        return Result("Формат: <code>id | новый текст (первая строка — заголовок)</code>")
+    ok = await c.notes.edit(uid, note_id, text)
+    return Result("✏️ Заметка обновлена." if ok else "Заметка не найдена.")
+
+
+async def _note_delete(c: "Container", uid: int, arg: str) -> Result:
+    if not arg.strip().isdigit():
+        return Result("Отправь номер заметки (число).")
+    ok = await c.notes.delete(uid, int(arg.strip()))
+    return Result("🗑 Удалена." if ok else "Не найдена.")
+
+
+async def _note_search(c: "Container", uid: int, arg: str) -> Result:
+    if not arg.strip():
+        return Result("Отправь слово или фразу для поиска.")
+    notes = await c.notes.search(uid, arg.strip())
+    if not notes:
+        return Result("Ничего не найдено.")
+    return Result(f"<b>Найдено ({len(notes)})</b>\n" + "\n".join(
+        f"#{n['id']} {escape(n['title'] or 'без названия')}" for n in notes))
+
+
+async def _todo_undo(c: "Container", uid: int, arg: str) -> Result:
+    if not arg.strip().isdigit():
+        return Result("Отправь номер задачи (число).")
+    ok = await c.todos.undo(uid, int(arg.strip()))
+    return Result("⬜ Возвращена в невыполненные." if ok else "Не найдена.")
+
+
+async def _todo_edit(c: "Container", uid: int, arg: str) -> Result:
+    todo_id, text = _split_id_and_text(arg)
+    if todo_id is None or not text:
+        return Result("Формат: <code>id | новый текст задачи</code>")
+    ok = await c.todos.edit(uid, todo_id, text)
+    return Result("✏️ Задача обновлена." if ok else "Задача не найдена.")
+
+
+async def _todo_delete(c: "Container", uid: int, arg: str) -> Result:
+    if not arg.strip().isdigit():
+        return Result("Отправь номер задачи (число).")
+    ok = await c.todos.delete(uid, int(arg.strip()))
+    return Result("🗑 Удалена." if ok else "Не найдена.")
+
+
+async def _todo_pending(c: "Container", uid: int, _: str) -> Result:
+    todos = await c.todos.list(uid, include_done=False)
+    if not todos:
+        return Result("Невыполненных задач нет 🎉")
+    return Result("<b>Невыполненные задачи</b>\n" + "\n".join(
+        f"⬜ #{t['id']} {escape(t['text'])}" for t in todos))
+
+
+async def _todo_clear_done(c: "Container", uid: int, _: str) -> Result:
+    n = await c.todos.clear_done(uid)
+    return Result(f"🧹 Удалено выполненных задач: {n}" if n else "Выполненных задач нет.")
+
+
+async def _productivity_stats(c: "Container", uid: int, _: str) -> Result:
+    notes_n = await c.notes.count(uid)
+    pending, done = await c.todos.counts(uid)
+    return Result(
+        f"<b>📊 Статистика</b>\n"
+        f"Заметок: {notes_n}\n"
+        f"Задач невыполнено: {pending}\n"
+        f"Задач выполнено: {done}"
+    )
+
+
 async def _profile(c: "Container", uid: int, _: str) -> Result:
     p = await c.users.profile(uid)
     if not p:
@@ -412,6 +530,57 @@ async def _keys_list(c: "Container", uid: int, _: str) -> Result:
 async def _set_provider(c: "Container", uid: int, arg: str) -> Result:
     await c.settings_svc.set(uid, "ai_provider", arg.strip().lower())
     return Result(f"✅ Провайдер ИИ по умолчанию: {escape(arg.strip().lower())}")
+
+
+async def _set_model(c: "Container", uid: int, arg: str) -> Result:
+    if not arg.strip():
+        return Result("Отправь название модели.")
+    await c.settings_svc.set(uid, "ai_model", arg.strip())
+    return Result(f"✅ Модель ИИ по умолчанию: {escape(arg.strip())}")
+
+
+async def _del_key(c: "Container", uid: int, arg: str) -> Result:
+    provider = arg.strip().lower()
+    if not provider:
+        return Result("Отправь id ключа (см. «🔑 Ключи»).")
+    await c.api_keys.delete(uid, provider)
+    return Result(f"🗑 Ключ «{escape(provider)}» удалён (если был).")
+
+
+async def _my_settings(c: "Container", uid: int, _: str) -> Result:
+    data = await c.settings_svc.all(uid)
+    return Result(human("⚙️ Твои настройки", data))
+
+
+async def _reset_settings(c: "Container", uid: int, _: str) -> Result:
+    await c.settings_svc.reset(uid)
+    return Result("🔄 Настройки сброшены на умолчания.")
+
+
+async def _providers_help(c: "Container", uid: int, _: str) -> Result:
+    from .services.ai import _AI_PROVIDER_IDS
+    from .services.osint import OSINT_KEY_IDS
+    return Result(
+        "<b>Доступные id для «➕ Добавить ключ»</b>\n\n"
+        f"<b>ИИ:</b> {', '.join(sorted(_AI_PROVIDER_IDS))}\n"
+        f"<b>OSINT:</b> {', '.join(sorted(OSINT_KEY_IDS))}\n\n"
+        "Свой ключ имеет приоритет над ключом в .env владельца бота."
+    )
+
+
+async def _wipe_me(c: "Container", uid: int, arg: str) -> Result:
+    if arg.strip().upper() != "УДАЛИТЬ":
+        return Result(
+            "⚠️ Это удалит ВСЕ твои заметки, задачи, сохранённые ключи и настройки "
+            "безвозвратно. Роль и доступ к боту не затронуты.\n\n"
+            "Чтобы подтвердить, отправь заглавными: <code>УДАЛИТЬ</code>"
+        )
+    notes_n = await c.notes.delete_all(uid)
+    todos_n = await c.todos.delete_all(uid)
+    await c.api_keys.delete_all(uid)
+    await c.settings_svc.reset(uid)
+    await c.repos.audit.log(uid, "user.wipe_self", f"notes={notes_n} todos={todos_n}")
+    return Result(f"🧹 Готово. Удалено: заметок — {notes_n}, задач — {todos_n}, все ключи и настройки.")
 
 
 async def load_last_report(c: "Container", uid: int) -> dict | None:
@@ -494,6 +663,25 @@ async def _backup(c: "Container", uid: int, _: str) -> Result:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     return Result(f"💾 Бэкап базы ({len(data) // 1024} КБ). Содержит зашифрованные ключи — храни надёжно.",
                   filename=f"deathbot-backup-{stamp}.sqlite3", file_bytes=data)
+
+
+async def _plugin_install(c: "Container", uid: int, arg: str) -> Result:
+    if not c.access.is_owner(uid):
+        return Result("⛔ Установка инструментов доступна только владельцу.")
+    data = await c.plugins.install(uid, arg)
+    return Result(human("Установка инструмента", data))
+
+
+async def _plugin_list(c: "Container", uid: int, _: str) -> Result:
+    data = await c.plugins.list_installed()
+    return Result(human("🧩 Свои инструменты", data))
+
+
+async def _plugin_remove(c: "Container", uid: int, arg: str) -> Result:
+    if not c.access.is_owner(uid):
+        return Result("⛔ Удаление инструментов доступно только владельцу.")
+    data = await c.plugins.remove(arg.strip().lower())
+    return Result(human("Удаление инструмента", data))
 
 
 # --------------------------------------------------------------------------- #
@@ -650,6 +838,50 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
        kind="instant", run=_ai_providers),
     _t(id="ai_reset", label="Очистить историю", category="ai", module="ai",
        kind="instant", run=_ai_reset),
+    _t(id="ai_translate_en", label="🇬🇧 Перевод → английский", category="ai", module="ai",
+       prompt="Отправь текст для перевода",
+       run=_ai_mode("Переведи следующий текст на английский, сохрани смысл, тон и форматирование. "
+                    "Выведи только перевод, без пояснений.", "Перевод → английский")),
+    _t(id="ai_translate_ru", label="🇷🇺 Перевод → русский", category="ai", module="ai",
+       prompt="Отправь текст для перевода",
+       run=_ai_mode("Переведи следующий текст на русский, сохрани смысл и тон. "
+                    "Выведи только перевод, без пояснений.", "Перевод → русский")),
+    _t(id="ai_summarize", label="📋 Краткое содержание", category="ai", module="ai",
+       prompt="Отправь текст для сжатия",
+       run=_ai_mode("Сделай краткое содержание текста ниже: 3-6 пунктов, только суть.",
+                    "Краткое содержание")),
+    _t(id="ai_shorten", label="✂️ Сократить текст", category="ai", module="ai",
+       prompt="Отправь текст, который нужно сократить",
+       run=_ai_mode("Сократи текст до 2-3 предложений, сохрани главную мысль.",
+                    "Сокращение текста")),
+    _t(id="ai_rewrite", label="✍️ Переписать яснее", category="ai", module="ai",
+       prompt="Отправь текст для рерайта",
+       run=_ai_mode("Перепиши текст яснее и грамотнее, сохрани смысл и тон автора.",
+                    "Рерайт текста")),
+    _t(id="ai_explain_code", label="💡 Объяснить код", category="ai", module="ai",
+       prompt="Вставь код",
+       run=_ai_mode("Объясни, что делает этот код, простыми словами, по шагам.",
+                    "Объяснение кода")),
+    _t(id="ai_review_code", label="🔍 Ревью кода", category="ai", module="ai",
+       prompt="Вставь код на ревью",
+       run=_ai_mode("Проведи код-ревью: найди баги, проблемы безопасности, узкие места "
+                    "и стиль. Дай конкретные, применимые замечания.", "Ревью кода")),
+    _t(id="ai_explain_error", label="🐛 Объяснить ошибку", category="ai", module="ai",
+       prompt="Вставь текст ошибки/трейсбек",
+       run=_ai_mode("Объясни эту ошибку/трейсбек простыми словами и предложи, как это исправить.",
+                    "Объяснение ошибки")),
+    _t(id="ai_regex", label="🧵 Составить регулярку", category="ai", module="ai",
+       prompt="Опиши, что должно совпадать (и что не должно)",
+       run=_ai_mode("Составь регулярное выражение под описанную задачу. Дай сам паттерн "
+                    "и короткое объяснение по частям.", "Регулярное выражение")),
+    _t(id="ai_sql", label="🗄 Составить SQL", category="ai", module="ai",
+       prompt="Опиши задачу (и диалект SQL, если важен)",
+       run=_ai_mode("Составь SQL-запрос под описанную задачу. Если диалект не указан — "
+                    "используй стандартный SQL и отметь это.", "SQL-запрос")),
+    _t(id="ai_commit_msg", label="📦 Сообщение коммита", category="ai", module="ai",
+       prompt="Опиши, что изменилось",
+       run=_ai_mode("Составь короткое информативное сообщение коммита в стиле "
+                    "Conventional Commits по описанию изменений.", "Сообщение коммита")),
 
     # ---- Agents ----
     _t(id="ag_general", label="Универсальный", category="agents", module="ai",
@@ -668,6 +900,22 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
        prompt="Задай исследовательский вопрос", run=_agent("research", "Агент-исследователь")),
     _t(id="ag_planner", label="Планировщик", category="agents", module="ai",
        prompt="Опиши цель — составлю план", run=_agent("planner", "Агент-планировщик")),
+    _t(id="ag_incident", label="Инцидент-респонс", category="agents", module="ai",
+       prompt="Опиши инцидент", run=_agent("incident", "Агент реагирования на инциденты")),
+    _t(id="ag_devops", label="DevOps", category="agents", module="ai",
+       prompt="Опиши задачу по инфраструктуре/CI-CD", run=_agent("devops", "DevOps-агент")),
+    _t(id="ag_legal", label="Юрист (общее)", category="agents", module="ai",
+       prompt="Опиши ситуацию", run=_agent("legal", "Юридический аналитик")),
+    _t(id="ag_finance", label="Финансы", category="agents", module="ai",
+       prompt="Опиши задачу / вставь цифры", run=_agent("finance", "Финансовый аналитик")),
+    _t(id="ag_seo", label="SEO/Контент", category="agents", module="ai",
+       prompt="Вставь текст или опиши задачу", run=_agent("seo", "SEO/контент-агент")),
+    _t(id="ag_career", label="Карьера", category="agents", module="ai",
+       prompt="Опиши ситуацию (резюме, собес, выбор)", run=_agent("career", "Карьерный коуч")),
+    _t(id="ag_translator", label="Переводчик", category="agents", module="ai",
+       prompt="Отправь текст для перевода", run=_agent("translator", "Агент-переводчик")),
+    _t(id="ag_critique", label="Критик", category="agents", module="ai",
+       prompt="Пришли план/идею/аргумент", run=_agent("critique", "Агент-критик")),
 
     # ---- Productivity ----
     _t(id="note_add", label="➕ Заметка", category="productivity", module="notes",
@@ -680,6 +928,26 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
        kind="instant", run=_todo_list),
     _t(id="todo_done", label="☑️ Выполнить", category="productivity", module="todo",
        prompt="Отправь номер задачи", run=_todo_done),
+    _t(id="note_view", label="🔎 Открыть заметку", category="productivity", module="notes",
+       prompt="Отправь номер заметки", run=_note_view),
+    _t(id="note_edit", label="✏️ Изменить заметку", category="productivity", module="notes",
+       prompt="Формат: id | новый текст (первая строка — заголовок)", run=_note_edit),
+    _t(id="note_delete", label="🗑 Удалить заметку", category="productivity", module="notes",
+       prompt="Отправь номер заметки", run=_note_delete),
+    _t(id="note_search", label="🔍 Поиск заметок", category="productivity", module="notes",
+       prompt="Отправь слово или фразу", run=_note_search),
+    _t(id="todo_undo", label="⬜ Вернуть задачу", category="productivity", module="todo",
+       prompt="Отправь номер задачи", run=_todo_undo),
+    _t(id="todo_edit", label="✏️ Изменить задачу", category="productivity", module="todo",
+       prompt="Формат: id | новый текст задачи", run=_todo_edit),
+    _t(id="todo_delete", label="🗑 Удалить задачу", category="productivity", module="todo",
+       prompt="Отправь номер задачи", run=_todo_delete),
+    _t(id="todo_pending", label="⏳ Только невыполненные", category="productivity", module="todo",
+       kind="instant", run=_todo_pending),
+    _t(id="todo_clear_done", label="🧹 Очистить выполненные", category="productivity", module="todo",
+       kind="instant", run=_todo_clear_done),
+    _t(id="productivity_stats", label="📊 Статистика", category="productivity", module="notes",
+       kind="instant", run=_productivity_stats),
 
     # ---- Export ----
     _t(id="exp_pdf", label="PDF", category="export", module="reports", kind="instant", run=_export("pdf")),
@@ -698,6 +966,18 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
     _t(id="setprov", label="Сменить ИИ", category="settings", module="profile",
        prompt="Отправь название провайдера (openrouter, openai, claude, gemini…)",
        run=_set_provider),
+    _t(id="setmodel", label="Модель ИИ по умолчанию", category="settings", module="profile",
+       prompt="Отправь название модели (например gpt-4o-mini)", run=_set_model),
+    _t(id="delkey", label="🗑 Удалить ключ", category="settings", module="profile",
+       prompt="Отправь id ключа для удаления (см. «🔑 Ключи»)", run=_del_key),
+    _t(id="my_settings", label="📋 Мои настройки", category="settings", module="profile",
+       kind="instant", run=_my_settings),
+    _t(id="reset_settings", label="🔄 Сбросить настройки", category="settings", module="profile",
+       kind="instant", run=_reset_settings),
+    _t(id="providers_help", label="❓ Какие id ключей бывают", category="settings", module="profile",
+       kind="instant", run=_providers_help),
+    _t(id="wipe_me", label="⚠️ Удалить все мои данные", category="settings", module="profile",
+       prompt="Отправь <code>УДАЛИТЬ</code> заглавными, чтобы подтвердить", run=_wipe_me),
 
     # ---- Admin ----
     _t(id="users", label="Пользователи", category="admin", module="admin",
@@ -712,6 +992,17 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
        kind="instant", run=_audit),
     _t(id="backup", label="💾 Бэкап БД", category="admin", module="admin",
        kind="instant", run=_backup, desc="Скачать снимок базы (только владелец)"),
+    _t(id="plugin_install", label="➕ Установить инструмент", category="admin", module="admin",
+       background=True, run=_plugin_install,
+       prompt="Отправь: <code>id | pip-или-git-спецификатор | Название | Описание</code>\n"
+              "Пример: <code>trufflehog | truffleHog3 | TruffleHog | поиск секретов в репо</code>\n"
+              "Спецификатор — имя пакета PyPI или <code>git+https://github.com/автор/репо.git</code>.",
+       desc="Поставить свой CLI-инструмент из PyPI/GitHub через pipx (только владелец, выполняет чужой код!)"),
+    _t(id="plugin_list", label="🧩 Мои инструменты", category="admin", module="admin",
+       kind="instant", run=_plugin_list, desc="Список установленных вручную инструментов"),
+    _t(id="plugin_remove", label="🗑 Удалить инструмент", category="admin", module="admin",
+       prompt="Отправь id установленного инструмента (см. «🧩 Мои инструменты»)",
+       run=_plugin_remove, desc="Снести установленный вручную инструмент"),
 ]}
 
 # Descriptions for the built-in tools (the GitHub CLIs above set desc inline).
@@ -751,6 +1042,17 @@ DESCRIPTIONS: dict[str, str] = {
     "ai_chat": "Диалог с ИИ с сохранением контекста",
     "ai_providers": "Список доступных ИИ-провайдеров",
     "ai_reset": "Очистить историю диалога с ИИ",
+    "ai_translate_en": "Перевод текста на английский",
+    "ai_translate_ru": "Перевод текста на русский",
+    "ai_summarize": "Краткое содержание текста (3-6 пунктов)",
+    "ai_shorten": "Сократить текст до сути (2-3 предложения)",
+    "ai_rewrite": "Переписать текст яснее и грамотнее",
+    "ai_explain_code": "Объяснение кода простыми словами",
+    "ai_review_code": "Код-ревью: баги, безопасность, стиль",
+    "ai_explain_error": "Разбор ошибки/трейсбека + как исправить",
+    "ai_regex": "Составить регулярное выражение по описанию",
+    "ai_sql": "Составить SQL-запрос по описанию",
+    "ai_commit_msg": "Сообщение коммита по описанию изменений",
     # Agents
     "ag_general": "Универсальный помощник",
     "ag_osint": "Агент планирует OSINT по цели",
@@ -760,18 +1062,45 @@ DESCRIPTIONS: dict[str, str] = {
     "ag_code": "Агент пишет и ревьюит код",
     "ag_research": "Агент-исследователь с рассуждением",
     "ag_planner": "Агент составляет пошаговый план",
+    "ag_incident": "План сдерживания и восстановления по инциденту",
+    "ag_devops": "Помощь с Docker/CI-CD/инфраструктурой",
+    "ag_legal": "Разбор рисков по цифровому праву (не консультация)",
+    "ag_finance": "Разбор метрик, бюджетов, юнит-экономики",
+    "ag_seo": "SEO/контент-правки: структура, заголовки, ключевые слова",
+    "ag_career": "Резюме, подготовка к собеседованиям, карьера",
+    "ag_translator": "Профессиональный перевод с сохранением тона",
+    "ag_critique": "Жёсткий разбор слабых мест плана/идеи",
     # Productivity / settings / admin
     "note_add": "Сохранить заметку", "note_list": "Показать заметки",
     "todo_add": "Добавить задачу", "todo_list": "Показать задачи",
     "todo_done": "Отметить задачу выполненной",
+    "note_view": "Открыть заметку целиком",
+    "note_edit": "Изменить текст заметки",
+    "note_delete": "Удалить заметку",
+    "note_search": "Поиск по заголовкам и тексту заметок",
+    "todo_undo": "Вернуть выполненную задачу в невыполненные",
+    "todo_edit": "Изменить текст задачи",
+    "todo_delete": "Удалить задачу",
+    "todo_pending": "Только невыполненные задачи",
+    "todo_clear_done": "Удалить все выполненные задачи разом",
+    "productivity_stats": "Счётчики заметок и задач",
     "profile": "Твой профиль и статистика",
     "keys": "Список сохранённых API-ключей",
     "addkey": "Добавить зашифрованный API-ключ",
     "setprov": "Выбрать ИИ-провайдера по умолчанию",
+    "setmodel": "Задать модель ИИ по умолчанию",
+    "delkey": "Удалить сохранённый API-ключ",
+    "my_settings": "Показать все свои настройки",
+    "reset_settings": "Сбросить настройки на умолчания",
+    "providers_help": "Справка: какие id ключей понимает бот",
+    "wipe_me": "Удалить все свои заметки/задачи/ключи/настройки",
     "users": "Список пользователей", "grant": "Выдать пользователю роль",
     "ban": "Забанить пользователя", "unban": "Снять бан",
     "audit": "Последние действия из журнала",
     "backup": "Скачать снимок базы (только владелец)",
+    "plugin_install": "Установить свой CLI-инструмент из PyPI/GitHub",
+    "plugin_list": "Список установленных вручную инструментов",
+    "plugin_remove": "Удалить установленный вручную инструмент",
     # Export
     "exp_pdf": "Последний результат → PDF", "exp_docx": "Последний результат → DOCX",
     "exp_html": "Последний результат → HTML", "exp_md": "Последний результат → Markdown",
@@ -865,3 +1194,20 @@ def tools_in_sub(category: str, subcategory: str) -> list[Tool]:
 
 def get_tool(tool_id: str) -> Tool | None:
     return TOOLS.get(tool_id)
+
+
+# --------------------------------------------------------------------------- #
+# runtime plugin registration — tools the owner installs from a pip/git spec
+# after the process has already started (see services/plugins.py). Reloaded
+# from the DB on every boot so they survive a restart.
+# --------------------------------------------------------------------------- #
+def register_custom_tool(tool_id: str, label: str, desc: str, binary_path: str) -> None:
+    TOOLS[tool_id] = _t(
+        id=tool_id, label=label, category="custom", module="admin",
+        prompt=f"Отправь аргумент для «{label}» (домен/ник/IP — смотря что ждёт инструмент)",
+        run=_custom_cli(binary_path, label), desc=desc, background=True,
+    )
+
+
+def unregister_custom_tool(tool_id: str) -> None:
+    TOOLS.pop(tool_id, None)

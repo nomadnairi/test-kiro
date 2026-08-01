@@ -27,18 +27,44 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ---------------------------------------------------------------------------
-# Stage 1b: gobuild — compile gau, and fetch the prebuilt phoneinfoga binary
+# Stage 1b: gobuild — compile the Go-based recon/pentest CLIs, and fetch the
+# prebuilt phoneinfoga binary
 # ---------------------------------------------------------------------------
 # phoneinfoga embeds a web client (go:embed client/dist/*) that is not present
 # in a plain `go install`, so it is downloaded as a release binary instead.
+#
+# `go install` auto-switches to whatever newer Go toolchain a module's go.mod
+# demands (verified against this exact base: httpx/nuclei/katana/gobuster all
+# pulled a newer 1.25/1.26 toolchain on demand and built clean) — the base
+# image version below is just the floor, not a hard pin.
 FROM golang:1.22-bookworm AS gobuild
 ENV CGO_ENABLED=0 GOBIN=/out
-RUN mkdir -p /out \
-    && (go install github.com/lc/gau/v2/cmd/gau@latest \
-        || echo "WARN: gau build failed (tool will be reported as not installed)")
+RUN mkdir -p /out
+RUN go install github.com/lc/gau/v2/cmd/gau@latest \
+    || echo "WARN: gau build failed (tool will be reported as not installed)"
 RUN curl -sSL "https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install" \
         | bash -s -- -b /out \
     || echo "WARN: phoneinfoga download failed (tool will be reported as not installed)"
+
+# ProjectDiscovery + community recon/pentest tools — real binaries for the
+# "Пентест" menu (these were registered as buttons but never actually built
+# into the image before; every one of them build-verified here first).
+RUN go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest \
+    || echo "WARN: subfinder build failed (tool will be reported as not installed)"
+RUN go install github.com/projectdiscovery/httpx/cmd/httpx@latest \
+    || echo "WARN: httpx build failed (tool will be reported as not installed)"
+RUN go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest \
+    || echo "WARN: naabu build failed (tool will be reported as not installed)"
+RUN go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest \
+    || echo "WARN: nuclei build failed (tool will be reported as not installed)"
+RUN go install github.com/projectdiscovery/katana/cmd/katana@latest \
+    || echo "WARN: katana build failed (tool will be reported as not installed)"
+RUN go install github.com/OJ/gobuster/v3@latest \
+    || echo "WARN: gobuster build failed (tool will be reported as not installed)"
+RUN go install github.com/ffuf/ffuf/v2@latest \
+    || echo "WARN: ffuf build failed (tool will be reported as not installed)"
+RUN go install github.com/owasp-amass/amass/v4/...@master \
+    || echo "WARN: amass build failed (tool will be reported as not installed)"
 
 # ---------------------------------------------------------------------------
 # Stage 2: runtime — minimal, non-root, signal-correct
@@ -52,10 +78,26 @@ FROM python:${PYTHON_VERSION} AS runtime
 #   nmap   → real Port Scan (else an asyncio fallback)
 #   whatweb→ website fingerprint OSINT tool
 #   git/pipx → install the Python OSINT CLIs in isolated environments
+#   unzip  → feroxbuster's official install script unpacks a .zip release
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        tini procps whois nmap whatweb git ca-certificates pipx \
+        tini procps whois nmap whatweb git ca-certificates pipx unzip \
     && rm -rf /var/lib/apt/lists/*
+
+# masscan is packaged for Debian directly — kept in its own non-fatal layer
+# (separate apt-get run) so a missing package on some future base image can't
+# take the tini/nmap/etc install above down with it.
+RUN apt-get update \
+    && (apt-get install -y --no-install-recommends masscan \
+        || echo "WARN: masscan apt install failed (tool will be reported as not installed)") \
+    && rm -rf /var/lib/apt/lists/*
+
+# feroxbuster ships prebuilt release binaries only (Rust, no `go install`
+# equivalent) — official script, fixed release-asset URLs (no GitHub API
+# call, so it isn't rate-limit-prone).
+RUN curl -sSL "https://raw.githubusercontent.com/epi052/feroxbuster/main/install-nix.sh" \
+        | bash -s -- /usr/local/bin \
+    || echo "WARN: feroxbuster download failed (tool will be reported as not installed)"
 
 # pipx installs each OSINT CLI into its own venv (no dependency clashes with the
 # bot's runtime) and drops the entrypoints into /usr/local/bin (on PATH for all

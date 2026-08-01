@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>A button-driven Telegram bot for OSINT, recon & AI.</b><br>
-  Tap a menu — no commands to memorize. 59 tools, 10 AI providers, 8 export formats.
+  Tap a menu — no commands to memorize. 123+ tools, 10 AI providers, 8 export formats.
 </p>
 
 <p align="center">
@@ -27,7 +27,15 @@ SQLite) with role-based access, encrypted API keys and an audit log.
 ## Highlights
 
 - 🧭 **No commands** — the whole UI is buttons. Only `/start`, `/menu`, `/cancel` exist.
-- 🧰 **85 tools** in 9 categories, all generated from one registry — OSINT is further split into a sub-menu tree (Домены / Email и телефоны / Юзернеймы / IP / Изображения / Секреты и ключи).
+- 🧰 **123+ tools** across 10 categories, all generated from one registry — OSINT
+  alone is split into a sub-menu tree (Домены / Email и телефоны / Юзернеймы / IP /
+  Изображения / Секреты и ключи), and every Пентест CLI (subfinder, httpx, nuclei,
+  katana, gobuster, ffuf, amass, naabu, masscan, feroxbuster) is actually
+  compiled and installed in the Docker image, not just registered as a button.
+- 🔌 **Install your own tool from PyPI/GitHub at runtime** — owner-only
+  🛡 Админ → ➕ Установить инструмент runs `pipx` against a package spec you
+  paste in chat, verifies it really produced a working binary, and wires it
+  into the menu immediately (persists across restarts).
 - 🧩 **Combine workflows** — one tap chains several tools into a single report:
   domain report, username profile, IP dossier, and a **person dossier** that
   pivots username → social profiles → emails/phones → leaks → name-search links.
@@ -101,9 +109,9 @@ are generated automatically. No new command, no new handler.
 
 ## Tools
 
-### 🔎 OSINT (28)
+### 🔎 OSINT (34) — grouped into a sub-menu tree (see screenshot above)
 
-**Built-in (13)**
+**Built-in (19)**
 
 | Tool | Does | Needs |
 |---|---|---|
@@ -111,6 +119,10 @@ are generated automatically. No new command, no new handler.
 | Username · Email · Phone | account / contact footprint | HIBP key for breaches |
 | GeoIP · Shodan | IP location & exposure | Shodan key |
 | Threat Intel · IOC | reputation & indicator triage | AbuseIPDB key |
+| Hunter.io (домен/проверка) | email patterns for a domain, email verifier | Hunter key |
+| EmailRep | email reputation: suspicious, leaked, blacklisted | optional key |
+| Утечки · Поиск по ФИО | multi-source breach lookup, name-search links | optional Dehashed |
+| Поиск утёкших ключей | offline regex scanner for leaked API keys/tokens | — |
 | Reverse Image · EXIF · Darknet | image OSINT & metadata | — |
 
 **Real GitHub CLIs (15)** — installed in the Docker image, each button labelled
@@ -131,21 +143,39 @@ with what it does:
 | PhoneInfoga | phone-number OSINT |
 
 ### 🛠 Pentest (14) · *authorised targets only*
-| Native (always work) | External CLIs (run if installed) |
+| Native (always work) | External CLIs (compiled into the Docker image) |
 |---|---|
-| Port Scan · SSL Scan · Tech Detect | subfinder · amass · httpx · naabu · nuclei · katana · masscan · rustscan · gobuster · ffuf · feroxbuster |
+| Port Scan · SSL Scan · Tech Detect | subfinder · amass · httpx · naabu · nuclei · katana · masscan · gobuster · ffuf · feroxbuster |
 
-### 🤖 AI (10 providers)
+All ten external CLIs above are actually built/downloaded in the `gobuild` Docker
+stage (Go tools via `go install`, feroxbuster via its official release script,
+masscan via apt) — none of them are just registered buttons hoping a binary
+shows up. `rustscan` is registered too but has no verified install step yet
+(its release-asset naming needs pinning to a version) — it will correctly
+report itself as "not installed" rather than pretend to work.
+
+### 🤖 AI (15) — 10 providers + one-shot utility modes
 `OpenAI` · `Claude` · `Gemini` · `OpenRouter` · `Groq` · `DeepSeek` · `Grok` ·
 `Ollama` · `LM Studio` · `AnythingLLM` — the router tries your default, then
-falls back to whatever is configured. One-shot **Ask** or a **Chat** mode.
+falls back to whatever is configured. Beyond **Ask** and **Chat**: one-shot
+modes for translate (EN/RU), summarize, shorten, rewrite, explain code, review
+code, explain an error, write a regex, write SQL, and write a commit message.
 
-### 🧠 Agents (8)
-`General` · `OSINT` · `Recon` · `Report` · `Threat Intel` · `Code` · `Research` · `Planner`
+### 🧠 Agents (16)
+`General` · `OSINT` · `Recon` · `Report` · `Threat Intel` · `Code` · `Research` ·
+`Planner` · `Incident Response` · `DevOps` · `Legal` · `Finance` · `SEO` ·
+`Career Coach` · `Translator` · `Critique`
 
 ### 📤 Export (8)
 `PDF` · `DOCX` · `Obsidian` (YAML frontmatter + tags) · `Markdown` · `HTML` ·
 `CSV` · `JSON` · `TXT`. Every result gets a **📤 Export / Save as…** button.
+
+### 📝 Notes & todos (15) · ⚙️ Settings (10) · 🛡 Admin (9)
+Full CRUD on notes/todos (add, view, edit, search, delete, undo, bulk-clear
+completed, stats) — not just add/list. Settings covers per-key delete, default
+model pin, a self-service "delete all my data" wipe, and a reference of every
+key id the bot understands. Admin covers users/roles/bans/audit/backup plus
+the runtime plugin installer.
 
 > Tools needing a key or an external binary say so clearly and start working the
 > moment it's present. Network lookups need the host to have internet access.

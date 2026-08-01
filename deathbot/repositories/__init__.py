@@ -8,6 +8,7 @@ from .access import AccessRepository
 from .apikey import ApiKeyRepository
 from .audit import AuditRepository
 from .cache import CacheRepository
+from .customtools import CustomToolRepository
 from .history import HistoryRepository
 from .invite import InviteRepository
 from .note import NoteRepository
@@ -30,6 +31,7 @@ class Repositories:
     settings: SettingsRepository
     history: HistoryRepository
     cache: CacheRepository
+    custom_tools: CustomToolRepository
 
     @classmethod
     def build(cls, db: Database) -> "Repositories":
@@ -44,6 +46,7 @@ class Repositories:
             settings=SettingsRepository(db),
             history=HistoryRepository(db),
             cache=CacheRepository(db),
+            custom_tools=CustomToolRepository(db),
         )
 
 

@@ -6,14 +6,17 @@ Run: pytest -q
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 import tempfile
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import httpx
 
+import deathbot.services.plugins as plugins_mod
 from deathbot.ai.providers.base import error_detail
 from deathbot.ai.router import AIRouter
 from deathbot.config import load_settings
@@ -24,7 +27,7 @@ from deathbot.modules.osint.phone import phone_search
 from deathbot.modules.osint.secretscan import scan_text
 from deathbot.registry import TOOLS, human, strip_html, tools_in
 from deathbot.services.export import ExportService
-from deathbot.util import validate_input
+from deathbot.util import CommandResult, validate_input
 
 
 # --------------------------------------------------------------------------- #
@@ -366,3 +369,113 @@ def test_openrouter_200_with_embedded_error_is_not_a_bare_malformed_response():
     assert message is not None
     assert "No endpoints found matching your data policy" in message
     assert "malformed response" not in message
+
+
+# --------------------------------------------------------------------------- #
+# PluginService — owner-installed runtime tools (pipx). No real network/pipx
+# calls here (run_command is mocked); the actual pipx/pip mechanics were
+# verified separately against a real PyPI package during development.
+# --------------------------------------------------------------------------- #
+def test_plugin_install_rejects_bad_id_and_bad_spec():
+    async def scenario():
+        with tempfile.TemporaryDirectory() as tmp:
+            s = load_settings()
+            s.database_path = str(Path(tmp) / "t.db")
+            c = Container.build(s)
+            await c.startup()
+            await c.access.register_seen(1, "o", "O")
+
+            bad_id = await c.plugins.install(1, "Not Valid | somepkg")
+            bad_spec = await c.plugins.install(1, "goodid | pkg; rm -rf /")
+            too_few_parts = await c.plugins.install(1, "onlyid")
+            await c.shutdown()
+            return bad_id, bad_spec, too_few_parts
+
+    bad_id, bad_spec, too_few_parts = asyncio.run(scenario())
+    assert bad_id["available"] is False
+    assert bad_spec["available"] is False
+    assert too_few_parts["available"] is False
+
+
+def test_plugin_install_rejects_id_already_taken():
+    async def scenario():
+        with tempfile.TemporaryDirectory() as tmp:
+            s = load_settings()
+            s.database_path = str(Path(tmp) / "t.db")
+            c = Container.build(s)
+            await c.startup()
+            await c.access.register_seen(1, "o", "O")
+            res = await c.plugins.install(1, "whois | some-other-whois-package")
+            await c.shutdown()
+            return res
+
+    res = asyncio.run(scenario())
+    assert res["available"] is False
+    assert "занят" in res["reason"]
+
+
+def test_plugin_install_full_roundtrip_with_mocked_pipx(tmp_path, monkeypatch):
+    """Install -> live-registered -> runnable -> listed -> removed -> survives
+    a simulated restart (bootstrap reloads from DB)."""
+    monkeypatch.setattr(plugins_mod, "PIPX_HOME", str(tmp_path / "pipx"))
+    bin_dir = tmp_path / "pipx" / "bin"
+    monkeypatch.setattr(plugins_mod, "PIPX_BIN_DIR", str(bin_dir))
+    bin_dir.mkdir(parents=True)
+    fake_bin = bin_dir / "fakebin"
+    fake_bin.write_text("#!/bin/sh\necho fake output\n")
+    fake_bin.chmod(0o755)
+
+    list_calls = {"n": 0}
+
+    async def fake_run_command(cmd, timeout=120, cwd=None, stdin=None, env=None):
+        if cmd[:2] == ["pipx", "list"]:
+            list_calls["n"] += 1
+            body = ('{"venvs": {}}' if list_calls["n"] == 1 else
+                    json.dumps({"venvs": {"fakepkg": {
+                        "metadata": {"main_package": {"apps": ["fakebin"]}}}}}))
+            return CommandResult(True, body, "", 0)
+        if cmd[:2] == ["pipx", "install"] or cmd[:2] == ["pipx", "uninstall"]:
+            return CommandResult(True, "ok", "", 0)
+        if cmd and cmd[0] == str(fake_bin):
+            return CommandResult(True, "fake output", "", 0)
+        return CommandResult(False, "", f"{cmd[0] if cmd else '?'} not installed", None, missing=True)
+
+    async def scenario():
+        with tempfile.TemporaryDirectory() as tmp:
+            s = load_settings()
+            s.database_path = str(Path(tmp) / "t.db")
+            c = Container.build(s)
+            await c.startup()
+            await c.access.register_seen(1, "o", "O")
+
+            with patch.object(plugins_mod, "run_command", side_effect=fake_run_command):
+                install_res = await c.plugins.install(
+                    1, "fake_tool | fakepkg | FakeTool | a fake tool for tests")
+                assert install_res["available"] is True, install_res
+                assert "fake_tool" in TOOLS
+
+                tool = TOOLS["fake_tool"]
+                run_result = await tool.run(c, 1, "target")
+                assert "fake output" in run_result.text
+
+                listing = await c.plugins.list_installed()
+                assert listing["count"] == 1
+
+                remove_res = await c.plugins.remove("fake_tool")
+                assert remove_res["available"] is True
+                assert "fake_tool" not in TOOLS
+
+                install_res2 = await c.plugins.install(
+                    1, "fake_tool | fakepkg | FakeTool | a fake tool for tests")
+                assert install_res2["available"] is True
+
+            # Simulate a process restart: wipe the in-memory registry, then
+            # confirm bootstrap() restores it from the DB alone.
+            del TOOLS["fake_tool"]
+            assert "fake_tool" not in TOOLS
+            await c.plugins.bootstrap()
+            assert "fake_tool" in TOOLS
+
+            await c.shutdown()
+
+    asyncio.run(scenario())

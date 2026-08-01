@@ -75,3 +75,20 @@ class AIService:
 
     async def reset(self, user_id: int) -> None:
         await self.repos.history.clear(user_id)
+
+    async def run_mode(self, user_id: int, instruction: str, text: str) -> str:
+        """One-shot utility call (translate/summarize/review/…).
+
+        Deliberately separate from ask(): these are single-purpose tool taps,
+        not conversation — they don't read or write the shared chat history.
+        """
+        messages = [
+            ChatMessage("system", f"{_SYSTEM_PROMPT} {instruction}"),
+            ChatMessage("user", text),
+        ]
+        try:
+            user_keys = await self.user_keys(user_id)
+            response = await self.router.chat(messages, user_keys=user_keys)
+        except ProviderError as exc:
+            return f"⚠️ ИИ недоступен: {exc}"
+        return response.content

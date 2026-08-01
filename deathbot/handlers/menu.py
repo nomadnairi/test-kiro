@@ -357,7 +357,9 @@ async def _run_and_reply(message: Message, container: Container, uid: int,
                 return
             await _deliver(message, placeholder, container, uid, tool, arg, result)
 
-        container.engine.submit(job, timeout=420, retries=1)
+        # 600s headroom: most background tools finish in well under a minute,
+        # but installing a new plugin (pip resolving + building deps) can be slow.
+        container.engine.submit(job, timeout=600, retries=1)
         return
 
     try:

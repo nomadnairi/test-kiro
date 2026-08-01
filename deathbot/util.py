@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import shutil
 from dataclasses import dataclass
 
@@ -20,15 +21,19 @@ def has_binary(name: str) -> bool:
 
 
 async def run_command(cmd: list[str], timeout: int = 120, *,
-                      cwd: str | None = None, stdin: str | None = None) -> CommandResult:
+                      cwd: str | None = None, stdin: str | None = None,
+                      env: dict[str, str] | None = None) -> CommandResult:
     """Run an external tool, capturing output with a hard timeout.
 
     ``cwd`` lets tools that write files land in a writable dir (the container's
     /app is read-only). ``stdin`` feeds input to tools that read from it.
+    ``env`` merges on top of the current environment (e.g. to point pipx at a
+    writable, non-default PIPX_HOME for runtime-installed tools).
     """
     if not cmd or not has_binary(cmd[0]):
         return CommandResult(False, "", f"{cmd[0] if cmd else '?'} not installed",
                              None, missing=True)
+    full_env = {**os.environ, **env} if env else None
     try:
         proc = await asyncio.create_subprocess_exec(
             *cmd,
@@ -36,6 +41,7 @@ async def run_command(cmd: list[str], timeout: int = 120, *,
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
             cwd=cwd,
+            env=full_env,
         )
     except OSError as exc:
         return CommandResult(False, "", str(exc), None, missing=True)

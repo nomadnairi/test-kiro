@@ -42,3 +42,35 @@ class TodoRepository(BaseRepository):
             "DELETE FROM todos WHERE id = ? AND user_id = ?", (todo_id, user_id)
         )
         return True
+
+    async def update_text(self, todo_id: int, user_id: int, text: str) -> bool:
+        row = await self.db.fetch_one(
+            "SELECT id FROM todos WHERE id = ? AND user_id = ?", (todo_id, user_id)
+        )
+        if row is None:
+            return False
+        await self.db.execute(
+            "UPDATE todos SET text = ? WHERE id = ? AND user_id = ?", (text, todo_id, user_id)
+        )
+        return True
+
+    async def clear_done(self, user_id: int) -> int:
+        done_rows = await self.db.fetch_all(
+            "SELECT id FROM todos WHERE user_id = ? AND done = 1", (user_id,))
+        if done_rows:
+            await self.db.execute("DELETE FROM todos WHERE user_id = ? AND done = 1", (user_id,))
+        return len(done_rows)
+
+    async def delete_all(self, user_id: int) -> int:
+        pending, done = await self.counts(user_id)
+        total = pending + done
+        if total:
+            await self.db.execute("DELETE FROM todos WHERE user_id = ?", (user_id,))
+        return total
+
+    async def counts(self, user_id: int) -> tuple[int, int]:
+        """(pending, done)."""
+        row = await self.db.fetch_one(
+            "SELECT SUM(done = 0) AS pending, SUM(done = 1) AS done "
+            "FROM todos WHERE user_id = ?", (user_id,))
+        return (row["pending"] or 0, row["done"] or 0) if row else (0, 0)

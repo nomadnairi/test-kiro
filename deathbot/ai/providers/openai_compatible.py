@@ -43,7 +43,6 @@ class OpenAICompatibleProvider(AIProvider):
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(url, json=payload, headers=headers)
                 resp.raise_for_status()
-                data = resp.json()
         except httpx.HTTPStatusError as exc:
             raise ProviderError(
                 f"{self.name}: HTTP {exc.response.status_code} — "
@@ -53,9 +52,25 @@ class OpenAICompatibleProvider(AIProvider):
             raise ProviderError(f"{self.name}: {exc}") from exc
 
         try:
+            data = resp.json()
+        except ValueError as exc:
+            raise ProviderError(
+                f"{self.name}: non-JSON response body: {resp.text[:200]!r}"
+            ) from exc
+
+        # Gateways like OpenRouter can answer HTTP 200 with an {"error": {...}}
+        # body instead of "choices" when model routing fails after the
+        # handshake (e.g. no endpoints available for that model/data policy) —
+        # surface that specific reason rather than a bare "malformed response".
+        if isinstance(data, dict) and data.get("error"):
+            raise ProviderError(f"{self.name}: {error_detail(resp)}")
+
+        try:
             content = data["choices"][0]["message"]["content"]
-        except (KeyError, IndexError) as exc:
-            raise ProviderError(f"{self.name}: malformed response") from exc
+        except (KeyError, IndexError, TypeError) as exc:
+            raise ProviderError(
+                f"{self.name}: unexpected response shape — {str(data)[:200]}"
+            ) from exc
 
         tokens = int(data.get("usage", {}).get("total_tokens", 0) or 0)
         return ChatResponse(

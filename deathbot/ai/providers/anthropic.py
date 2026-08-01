@@ -44,7 +44,6 @@ class AnthropicProvider(AIProvider):
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(f"{self.base_url}/messages", json=payload, headers=headers)
                 resp.raise_for_status()
-                data = resp.json()
         except httpx.HTTPStatusError as exc:
             raise ProviderError(
                 f"claude: HTTP {exc.response.status_code} — {error_detail(exc.response)}"
@@ -53,11 +52,16 @@ class AnthropicProvider(AIProvider):
             raise ProviderError(f"claude: {exc}") from exc
 
         try:
+            data = resp.json()
+        except ValueError as exc:
+            raise ProviderError(f"claude: non-JSON response body: {resp.text[:200]!r}") from exc
+
+        try:
             content = "".join(
                 block.get("text", "") for block in data["content"] if block.get("type") == "text"
             )
         except (KeyError, TypeError) as exc:
-            raise ProviderError("claude: malformed response") from exc
+            raise ProviderError(f"claude: unexpected response shape — {str(data)[:200]}") from exc
 
         usage = data.get("usage", {})
         tokens = int(usage.get("input_tokens", 0)) + int(usage.get("output_tokens", 0))

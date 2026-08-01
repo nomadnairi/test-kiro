@@ -42,7 +42,6 @@ class GeminiProvider(AIProvider):
             async with httpx.AsyncClient(timeout=self.timeout) as client:
                 resp = await client.post(url, json=payload)
                 resp.raise_for_status()
-                data = resp.json()
         except httpx.HTTPStatusError as exc:
             raise ProviderError(
                 f"gemini: HTTP {exc.response.status_code} — {error_detail(exc.response)}"
@@ -51,9 +50,22 @@ class GeminiProvider(AIProvider):
             raise ProviderError(f"gemini: {exc}") from exc
 
         try:
+            data = resp.json()
+        except ValueError as exc:
+            raise ProviderError(f"gemini: non-JSON response body: {resp.text[:200]!r}") from exc
+
+        block_reason = data.get("promptFeedback", {}).get("blockReason")
+        if block_reason:
+            raise ProviderError(f"gemini: request blocked by safety filter ({block_reason})")
+
+        try:
             parts = data["candidates"][0]["content"]["parts"]
             content = "".join(p.get("text", "") for p in parts)
         except (KeyError, IndexError) as exc:
-            raise ProviderError("gemini: malformed or blocked response") from exc
+            finish_reason = (data.get("candidates") or [{}])[0].get("finishReason")
+            reason = f" (finishReason={finish_reason})" if finish_reason else ""
+            raise ProviderError(
+                f"gemini: unexpected response shape{reason} — {str(data)[:200]}"
+            ) from exc
 
         return ChatResponse(content=content, provider=self.name, model=model_id)

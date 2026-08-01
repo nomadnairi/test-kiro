@@ -283,3 +283,44 @@ def test_error_detail_falls_back_to_plain_text_body():
 def test_error_detail_never_raises_on_garbage_body():
     resp = _fake_response(400, text="<html>not json</html>")
     assert isinstance(error_detail(resp), str) and error_detail(resp)
+
+
+def test_openrouter_200_with_embedded_error_is_not_a_bare_malformed_response():
+    """Reproduces the reported bug: OpenRouter can answer HTTP 200 with an
+    {"error": {...}} body instead of "choices" (e.g. no endpoints available
+    for a :free model's data policy) — this used to surface as an opaque
+    "openrouter: malformed response" with zero diagnostic value."""
+    from deathbot.ai.providers.base import ChatMessage
+    from deathbot.ai.providers.openai_compatible import OpenAICompatibleProvider
+
+    async def scenario():
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={
+                "error": {
+                    "message": "No endpoints found matching your data policy "
+                              "(Free model publication)",
+                    "code": 404,
+                }
+            })
+
+        provider = OpenAICompatibleProvider(
+            name="openrouter", api_key="sk-test",
+            base_url="https://openrouter.ai/api/v1", model="nvidia/x:free",
+        )
+        transport = httpx.MockTransport(handler)
+        real_client = httpx.AsyncClient
+        try:
+            httpx.AsyncClient = lambda *a, **kw: real_client(*a, transport=transport, **kw)
+            from deathbot.ai.providers.base import ProviderError
+            try:
+                await provider.chat([ChatMessage("user", "hi")])
+                return None
+            except ProviderError as exc:
+                return str(exc)
+        finally:
+            httpx.AsyncClient = real_client
+
+    message = asyncio.run(scenario())
+    assert message is not None
+    assert "No endpoints found matching your data policy" in message
+    assert "malformed response" not in message

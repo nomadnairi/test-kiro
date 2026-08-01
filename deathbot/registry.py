@@ -13,6 +13,9 @@ from datetime import datetime, timezone
 from html import escape, unescape
 from typing import TYPE_CHECKING, Awaitable, Callable
 
+from .mdconvert import md_to_html
+from .util import truncate as _truncate
+
 _TAG_RE = re.compile(r"<[^>]+>")
 
 
@@ -350,12 +353,15 @@ def _agent(agent_id: str, title: str):
         user_keys = await c.ai.user_keys(uid)
         answer = await agent.run(arg, user_keys=user_keys)
         await c.repos.audit.log(uid, f"agent.{agent_id}", arg[:60])
-        return Result(f"<b>{escape(title)}</b>\n\n{escape(answer)}")
+        # Truncate the raw text first, *then* convert markdown->HTML — cutting
+        # already-converted HTML at an arbitrary length can slice a tag in half.
+        body = md_to_html(_truncate(answer))
+        return Result(f"<b>{escape(title)}</b>\n\n{body}")
     return _run
 
 
 async def _ai_ask(c: "Container", uid: int, arg: str) -> Result:
-    return Result(escape(await c.ai.ask(uid, arg)))
+    return Result(md_to_html(_truncate(await c.ai.ask(uid, arg))))
 
 
 def _ai_mode(instruction: str, title: str):
@@ -364,7 +370,8 @@ def _ai_mode(instruction: str, title: str):
     async def _run(c: "Container", uid: int, arg: str) -> Result:
         answer = await c.ai.run_mode(uid, instruction, arg)
         await c.repos.audit.log(uid, f"ai.mode.{title}", arg[:60])
-        return Result(f"<b>{escape(title)}</b>\n\n{escape(answer)}")
+        body = md_to_html(_truncate(answer))
+        return Result(f"<b>{escape(title)}</b>\n\n{body}")
     return _run
 
 

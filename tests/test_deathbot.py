@@ -24,6 +24,7 @@ from deathbot.container import Container
 from deathbot.core.security import Crypto
 from deathbot.modules.osint.ioc import classify_ioc
 from deathbot.modules.osint.phone import phone_search
+from deathbot.mdconvert import md_to_html
 from deathbot.modules.osint.secretscan import scan_text
 from deathbot.registry import TOOLS, human, strip_html, tools_in
 from deathbot.services.export import ExportService
@@ -106,6 +107,66 @@ def test_secretscan_masks_matches_never_echoes_full_secret():
     assert r["count"] == 1
     assert secret not in r["findings"][0]["match"]
     assert r["findings"][0]["match"].startswith("ghp_bb")
+
+
+# --------------------------------------------------------------------------- #
+# markdown -> Telegram HTML (raw LLM output must never leak "**"/"##"/"|" as
+# literal text, and must never produce unbalanced tags that break sendMessage)
+# --------------------------------------------------------------------------- #
+def _assert_balanced_tags(html: str) -> None:
+    import re as _re
+    for tag in ("b", "i", "code", "pre"):
+        opens = len(_re.findall(f"<{tag}>", html))
+        closes = len(_re.findall(f"</{tag}>", html))
+        assert opens == closes, (tag, html)
+
+
+def test_md_bold_and_italic_become_real_tags():
+    out = md_to_html("this is **bold** and this is *italic*")
+    assert out == "this is <b>bold</b> and this is <i>italic</i>"
+    _assert_balanced_tags(out)
+
+
+def test_md_headers_become_bold_not_literal_hashes():
+    out = md_to_html("## Section title\ntext below")
+    assert "##" not in out
+    assert "<b>Section title</b>" in out
+    _assert_balanced_tags(out)
+
+
+def test_md_table_becomes_readable_bullets_not_pipe_soup():
+    out = md_to_html("| A | B |\n|---|---|\n| x | y |")
+    assert "|" not in out
+    assert "---" not in out
+    assert "• A — B" in out
+    assert "• x — y" in out
+
+
+def test_md_fenced_code_becomes_pre_block():
+    out = md_to_html("before\n```bash\nwhois 1.2.3.4\n```\nafter")
+    assert "<pre>whois 1.2.3.4</pre>" in out
+    assert "```" not in out
+    _assert_balanced_tags(out)
+
+
+def test_md_unclosed_delimiter_never_produces_broken_html():
+    # This is the failure mode that matters most: an unmatched ** must not
+    # turn into an unclosed <b> that makes Telegram reject the whole message.
+    out = md_to_html("some text **never closed")
+    assert "<b>" not in out
+    _assert_balanced_tags(out)
+
+
+def test_md_html_special_chars_are_escaped():
+    out = md_to_html("a & b < c > d")
+    assert out == "a &amp; b &lt; c &gt; d"
+
+
+def test_md_to_html_never_raises_on_arbitrary_input():
+    for bad in ["", "   ", "*" * 500, "`" * 50, "```", None]:
+        if bad is None:
+            continue
+        md_to_html(bad)  # must not raise
 
 
 def test_secretscan_reports_correct_line_number():

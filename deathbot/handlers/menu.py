@@ -19,6 +19,7 @@ from ..container import Container
 from ..keyboards import (
     cancel_menu, category_menu, export_menu, main_menu, result_menu, subcategory_menu,
 )
+from ..mdconvert import md_to_html
 from ..registry import Result, Tool, build_export, get_tool, save_last_report, strip_html
 from ..states import AIChat, ApiKeyFlow, ToolFlow
 from ..util import truncate, validate_input
@@ -257,7 +258,7 @@ async def on_photo(message: Message, container: Container, state: FSMContext) ->
 async def on_chat(message: Message, container: Container) -> None:
     await message.chat.do("typing")
     answer = await container.ai.ask(message.from_user.id, message.text)
-    await message.answer(truncate(answer), reply_markup=cancel_menu())
+    await message.answer(md_to_html(truncate(answer)), reply_markup=cancel_menu())
 
 
 # ---- API-key two-step flow ----

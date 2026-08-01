@@ -62,10 +62,18 @@ RUN apt-get update \
 # users). Kept in one layer; failures in a single tool don't abort the build.
 ENV PIPX_HOME=/opt/pipx PIPX_BIN_DIR=/usr/local/bin
 RUN for pkg in \
-        theHarvester sherlock-project holehe maigret socialscan h8mail \
+        sherlock-project holehe maigret socialscan h8mail \
         dnstwist dnsrecon sublist3r checkdmarc wafw00f metafinder ; do \
         pipx install "$pkg" || echo "WARN: pipx install $pkg failed (tool will be reported as not installed)"; \
     done \
+    # The "theHarvester" name on PyPI is a dead, ancient 0.0.1 stub with no
+    # console script — installing it "succeeds" but leaves no theHarvester
+    # binary on PATH, so the tool silently reports "not installed" forever.
+    # The real project lives on GitHub only; the current tag (>=4.8.0) needs
+    # Python 3.12+, which this image doesn't have, so pin the newest tag that
+    # still supports 3.11 and has correct packaging metadata.
+    && (pipx install "theHarvester @ git+https://github.com/laramies/theHarvester.git@4.7.1" \
+        || echo "WARN: pipx install theHarvester failed (tool will be reported as not installed)") \
     && rm -rf /root/.cache
 
 # Go / release OSINT binaries (whatever built successfully lands here).

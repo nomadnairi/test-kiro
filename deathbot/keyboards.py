@@ -6,7 +6,7 @@ from collections.abc import Callable
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
-from .registry import CATEGORIES, tools_in
+from .registry import CATEGORIES, subcategories_in, tools_in, tools_in_sub
 
 Visible = Callable[[str], bool]  # module scope -> allowed?
 
@@ -21,12 +21,31 @@ def main_menu(visible: Visible) -> InlineKeyboardMarkup:
 
 
 def category_menu(category: str, visible: Visible) -> InlineKeyboardMarkup:
+    """Tools of a category — or, if it's grouped, its subcategories first."""
     kb = InlineKeyboardBuilder()
-    for tool in tools_in(category):
+    subs = subcategories_in(category)
+    if subs:
+        for sub_id, label in subs:
+            if any(visible(t.module) for t in tools_in_sub(category, sub_id)):
+                kb.button(text=label, callback_data=f"subcat:{category}:{sub_id}")
+        kb.adjust(2)
+    else:
+        for tool in tools_in(category):
+            if visible(tool.module):
+                kb.button(text=tool.label, callback_data=f"tool:{tool.id}")
+        kb.adjust(3)
+    kb.row(InlineKeyboardButton(text="⬅️ Меню", callback_data="nav:main"))
+    return kb.as_markup()
+
+
+def subcategory_menu(category: str, subcategory: str, visible: Visible) -> InlineKeyboardMarkup:
+    kb = InlineKeyboardBuilder()
+    for tool in tools_in_sub(category, subcategory):
         if visible(tool.module):
             kb.button(text=tool.label, callback_data=f"tool:{tool.id}")
-    kb.adjust(3)
-    kb.row(InlineKeyboardButton(text="⬅️ Меню", callback_data="nav:main"))
+    kb.adjust(2)
+    kb.row(InlineKeyboardButton(text="⬅️ Разделы", callback_data=f"cat:{category}"))
+    kb.row(InlineKeyboardButton(text="🏠 Меню", callback_data="nav:main"))
     return kb.as_markup()
 
 

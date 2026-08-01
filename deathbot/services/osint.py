@@ -16,7 +16,7 @@ from .apikey import ApiKeyService
 # Provider ids recognised as OSINT API keys (as opposed to AI provider ids),
 # kept in sync with the .env / config.osint_keys names.
 OSINT_KEY_IDS = {"shodan", "hibp", "abuseipdb", "dehashed", "virustotal",
-                 "hunter", "securitytrails"}
+                 "hunter", "emailrep", "securitytrails"}
 
 
 class OSINTService:
@@ -112,6 +112,21 @@ class OSINTService:
     async def name(self, user_id: int, fullname: str) -> dict:
         await self._audit(user_id, "osint.name", fullname)
         return await m.name_search(fullname)
+
+    async def hunter_domain(self, user_id: int, domain: str) -> dict:
+        await self._audit(user_id, "osint.hunter_domain", domain)
+        key = await self._key(user_id, "hunter")
+        return await m.hunter_domain_search(domain, key)
+
+    async def hunter_verify(self, user_id: int, email: str) -> dict:
+        await self._audit(user_id, "osint.hunter_verify", email)
+        key = await self._key(user_id, "hunter")
+        return await m.hunter_verify_email(email, key)
+
+    async def emailrep(self, user_id: int, email: str) -> dict:
+        await self._audit(user_id, "osint.emailrep", email)
+        key = await self._key(user_id, "emailrep")
+        return await m.emailrep_reputation(email, key)
 
     def exif(self, image_bytes: bytes) -> dict:
         return m.extract_exif(image_bytes)

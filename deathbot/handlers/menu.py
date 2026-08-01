@@ -16,7 +16,9 @@ from aiogram.types import BufferedInputFile, CallbackQuery, Message
 from datetime import datetime, timezone
 
 from ..container import Container
-from ..keyboards import cancel_menu, category_menu, export_menu, main_menu, result_menu
+from ..keyboards import (
+    cancel_menu, category_menu, export_menu, main_menu, result_menu, subcategory_menu,
+)
 from ..registry import Result, Tool, build_export, get_tool, save_last_report, strip_html
 from ..states import AIChat, ApiKeyFlow, ToolFlow
 from ..util import truncate, validate_input
@@ -113,9 +115,19 @@ async def cb_category(cb: CallbackQuery, container: Container, state: FSMContext
                       role: str = "guest") -> None:
     await state.clear()
     category = cb.data.split(":", 1)[1]
-    from ..registry import CATEGORIES, tools_in
+    from ..registry import CATEGORIES, subcategories_in, tools_in
     label = dict(CATEGORIES).get(category, category)
     vis = _visible(container, role)
+
+    subs = subcategories_in(category)
+    if subs:
+        # Grouped category (e.g. OSINT) — show the sub-menu tree first, like
+        # a catalog site: раздел -> инструменты, instead of one long list.
+        text = f"{label}\n\nВыбери раздел 👇"
+        await cb.message.edit_text(text, reply_markup=category_menu(category, vis))
+        await cb.answer()
+        return
+
     # Legend: name — what it does, so the user knows each tool before tapping.
     legend = "\n".join(
         f"• <b>{escape_html(t.label)}</b> — {escape_html(t.desc)}" if t.desc
@@ -124,6 +136,24 @@ async def cb_category(cb: CallbackQuery, container: Container, state: FSMContext
     )
     text = f"{label}\n\n{legend}\n\nВыбери инструмент 👇" if legend else f"{label}\nВыбери инструмент:"
     await cb.message.edit_text(text[:4000], reply_markup=category_menu(category, vis))
+    await cb.answer()
+
+
+@router.callback_query(F.data.startswith("subcat:"))
+async def cb_subcategory(cb: CallbackQuery, container: Container, state: FSMContext,
+                         role: str = "guest") -> None:
+    await state.clear()
+    _, category, subcategory = cb.data.split(":", 2)
+    from ..registry import SUBCATEGORY_LABELS, tools_in_sub
+    label = SUBCATEGORY_LABELS.get(subcategory, subcategory)
+    vis = _visible(container, role)
+    legend = "\n".join(
+        f"• <b>{escape_html(t.label)}</b> — {escape_html(t.desc)}" if t.desc
+        else f"• <b>{escape_html(t.label)}</b>"
+        for t in tools_in_sub(category, subcategory) if vis(t.module)
+    )
+    text = f"{label}\n\n{legend}\n\nВыбери инструмент 👇" if legend else f"{label}\nВыбери инструмент:"
+    await cb.message.edit_text(text[:4000], reply_markup=subcategory_menu(category, subcategory, vis))
     await cb.answer()
 
 
@@ -161,7 +191,7 @@ async def cb_tool(cb: CallbackQuery, container: Container, state: FSMContext) ->
         await cb.message.edit_text(
             "Какой провайдер?\n\n"
             "<b>ИИ:</b> openai, openrouter, groq, deepseek, grok, claude, gemini\n"
-            "<b>OSINT:</b> shodan, hibp, abuseipdb, dehashed, virustotal, hunter, securitytrails\n\n"
+            "<b>OSINT:</b> shodan, hibp, abuseipdb, dehashed, virustotal, hunter, emailrep, securitytrails\n\n"
             "Ключ заработает сразу после сохранения, приоритет — над ключом в .env.",
             reply_markup=cancel_menu(),
         )

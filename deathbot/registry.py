@@ -72,6 +72,7 @@ class Tool:
     desc: str = ""                    # one-line "what it does", shown on tap
     background: bool = False           # run via the task engine (slow tools)
     validate: str = ""                # expected input: domain|host|ip|email|url|username|phone
+    subcategory: str = ""             # groups tools within a category into a tree, like the site
 
 
 # --------------------------------------------------------------------------- #
@@ -119,6 +120,14 @@ FIELD_LABELS: dict[str, str] = {
     "total_hits": "всего совпадений", "breaches": "утечки",
     "fields": "поля", "found": "найдено", "infected_machines": "заражённых устройств",
     "credentials_on_machine": "учёток на устройстве", "entries": "записи",
+    "pattern": "паттерн почты", "organization": "организация",
+    "email_count": "найдено email", "emails": "email-адреса", "confidence": "уверенность",
+    "score": "оценка", "deliverable": "доставляемость", "disposable": "одноразовый",
+    "webmail": "веб-почта", "mx_records": "MX-записи", "reputation": "репутация",
+    "suspicious": "подозрительный", "references": "упоминаний",
+    "blacklisted": "в чёрных списках", "malicious_activity": "вредоносная активность",
+    "credentials_leaked": "учётки в утечках", "data_breach": "утечка данных",
+    "spam": "спам", "first_seen": "впервые замечен", "last_seen": "последний раз замечен",
 }
 
 
@@ -539,6 +548,15 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
     _t(id="fio", label="Поиск по ФИО", category="osint", module="osint",
        prompt="Отправь имя (ФИО)", run=_osint("name", "Поиск по ФИО"),
        desc="Готовые ссылки для поиска человека по имени (Google/VK/…)"),
+    _t(id="hunter_domain", label="Hunter.io (домен)", category="osint", module="osint",
+       prompt="Отправь домен компании", run=_osint("hunter_domain", "Hunter.io"),
+       desc="Email-адреса и паттерн почты организации по домену"),
+    _t(id="hunter_verify", label="Hunter.io (проверка)", category="osint", module="osint",
+       prompt="Отправь email для проверки", run=_osint("hunter_verify", "Hunter.io verify"),
+       desc="Проверка существования/доставляемости email"),
+    _t(id="emailrep", label="EmailRep", category="osint", module="osint",
+       prompt="Отправь email", run=_osint("emailrep", "EmailRep"),
+       desc="Репутация email: подозрительность, утечки, спам-метки"),
 
     # ---- OSINT: реальные CLI-инструменты с GitHub ----
     _t(id="theharvester", label="theHarvester", category="osint", module="osint",
@@ -781,14 +799,60 @@ _VALIDATE = {
     "socialscan": "username", "phone": "phone", "phoneinfoga": "phone",
     "revimg": "url", "techdetect": "host", "whatweb": "host", "wafw00f": "host",
     "sslscan": "host", "portscan": "host",
+    "hunter_domain": "domain", "hunter_verify": "email", "emailrep": "email",
 }
 for _tid, _v in _VALIDATE.items():
     if _tid in TOOLS:
         TOOLS[_tid].validate = _v
 
+# OSINT has grown to 30+ tools — grouped into a category tree (like the
+# catalog sites do: "Email и телефоны" -> Hunter.io / EmailRep / HIBP / ...)
+# instead of one long flat button wall. Categories with no entries here just
+# keep the old flat list.
+SUBCATEGORY_LABELS: dict[str, str] = {
+    "domains": "🌐 Домены и сайты",
+    "contacts": "📧 Email и телефоны",
+    "social": "👤 Юзернеймы и соцсети",
+    "ipgeo": "📍 IP и геолокация",
+    "images": "🖼 Изображения",
+    "other": "🕸 Прочее",
+}
+_SUBCATEGORY = {
+    "whois": "domains", "dns": "domains", "subdomains": "domains",
+    "dnstwist": "domains", "dnsrecon": "domains", "sublist3r": "domains",
+    "checkdmarc": "domains", "theharvester": "domains", "gau": "domains",
+    "metafinder": "domains", "whatweb": "domains", "wafw00f": "domains",
+    "email": "contacts", "phone": "contacts", "holehe": "contacts",
+    "h8mail": "contacts", "phoneinfoga": "contacts", "hunter_domain": "contacts",
+    "hunter_verify": "contacts", "emailrep": "contacts", "leak": "contacts",
+    "username": "social", "sherlock_cli": "social", "maigret": "social",
+    "socialscan": "social", "fio": "social",
+    "geoip": "ipgeo", "shodan": "ipgeo", "threatintel": "ipgeo", "ioc": "ipgeo",
+    "revimg": "images", "exif": "images",
+    "darknet": "other",
+}
+for _tid, _sc in _SUBCATEGORY.items():
+    if _tid in TOOLS:
+        TOOLS[_tid].subcategory = _sc
+
 
 def tools_in(category: str) -> list[Tool]:
     return [t for t in TOOLS.values() if t.category == category]
+
+
+def subcategories_in(category: str) -> list[tuple[str, str]]:
+    """Ordered (id, label) pairs for the subcategories present in a category.
+
+    Empty when the category isn't grouped — callers fall back to the flat
+    tools_in() list in that case.
+    """
+    present = {t.subcategory for t in TOOLS.values() if t.category == category and t.subcategory}
+    return [(sc, label) for sc, label in SUBCATEGORY_LABELS.items() if sc in present]
+
+
+def tools_in_sub(category: str, subcategory: str) -> list[Tool]:
+    return [t for t in TOOLS.values()
+            if t.category == category and t.subcategory == subcategory]
 
 
 def get_tool(tool_id: str) -> Tool | None:

@@ -167,6 +167,8 @@ def load_settings(
         "abuseipdb": os.getenv("ABUSEIPDB_API_KEY", ""),
         "hibp": os.getenv("HIBP_API_KEY", ""),
         "hunter": os.getenv("HUNTER_API_KEY", ""),
+        # Optional — emailrep.io works without a key at a lower rate limit.
+        "emailrep": os.getenv("EMAILREP_API_KEY", ""),
         "securitytrails": os.getenv("SECURITYTRAILS_API_KEY", ""),
         # Optional, paid — only added to the leak aggregator if you hold a
         # legitimate account. Left empty by default; nothing is auto-enabled.

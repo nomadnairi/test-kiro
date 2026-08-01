@@ -14,6 +14,7 @@ from .namesearch import name_search
 from .metadata import extract_exif
 from .phone import phone_search
 from .reverse_image import reverse_image
+from .secretscan import scan_text as scan_secrets
 from .shodan import shodan_host
 from .subdomains import subdomains
 from .threatintel import threat_intel
@@ -37,6 +38,7 @@ __all__ = [
     "extract_exif",
     "phone_search",
     "reverse_image",
+    "scan_secrets",
     "shodan_host",
     "subdomains",
     "threat_intel",

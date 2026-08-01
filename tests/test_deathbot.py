@@ -21,6 +21,7 @@ from deathbot.container import Container
 from deathbot.core.security import Crypto
 from deathbot.modules.osint.ioc import classify_ioc
 from deathbot.modules.osint.phone import phone_search
+from deathbot.modules.osint.secretscan import scan_text
 from deathbot.registry import TOOLS, human, strip_html, tools_in
 from deathbot.services.export import ExportService
 from deathbot.util import validate_input
@@ -80,6 +81,47 @@ def test_phone_parse():
     r = asyncio.run(phone_search("+79161234567"))
     assert r["country_guess"] == "Russia/Kazakhstan"
     assert r["e164"] == "+79161234567"
+
+
+def test_secretscan_finds_known_key_formats():
+    text = (
+        "AWS_KEY = 'AKIAABCDEFGHIJKLMNOP'\n"
+        "gh_token = ghp_" + "a" * 36 + "\n"
+        "clean line, nothing here\n"
+    )
+    r = scan_text(text)
+    services = {f["service"] for f in r["findings"]}
+    assert "AWS Access Key ID" in services
+    assert "GitHub PAT (classic)" in services
+    assert r["count"] == 2
+    assert r["chars_scanned"] == len(text)
+
+
+def test_secretscan_masks_matches_never_echoes_full_secret():
+    secret = "ghp_" + "b" * 36
+    r = scan_text(f"token: {secret}")
+    assert r["count"] == 1
+    assert secret not in r["findings"][0]["match"]
+    assert r["findings"][0]["match"].startswith("ghp_bb")
+
+
+def test_secretscan_reports_correct_line_number():
+    text = "line one\nline two\n" + "AKIAABCDEFGHIJKLMNOP" + "\nline four"
+    r = scan_text(text)
+    assert r["count"] == 1
+    assert r["findings"][0]["line"] == 3
+
+
+def test_secretscan_clean_text_finds_nothing():
+    r = scan_text("just a normal sentence about domains and emails.")
+    assert r["count"] == 0
+    assert r["findings"] == []
+
+
+def test_secretscan_deduplicates_repeated_matches():
+    secret = "AKIAABCDEFGHIJKLMNOP"
+    r = scan_text(f"{secret}\n...\n{secret}")
+    assert r["count"] == 1
 
 
 # --------------------------------------------------------------------------- #

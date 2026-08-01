@@ -128,6 +128,8 @@ FIELD_LABELS: dict[str, str] = {
     "blacklisted": "в чёрных списках", "malicious_activity": "вредоносная активность",
     "credentials_leaked": "учётки в утечках", "data_breach": "утечка данных",
     "spam": "спам", "first_seen": "впервые замечен", "last_seen": "последний раз замечен",
+    "service": "сервис", "confidence": "уверенность", "match": "фрагмент",
+    "line": "строка", "chars_scanned": "символов проверено",
 }
 
 
@@ -557,6 +559,10 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
     _t(id="emailrep", label="EmailRep", category="osint", module="osint",
        prompt="Отправь email", run=_osint("emailrep", "EmailRep"),
        desc="Репутация email: подозрительность, утечки, спам-метки"),
+    _t(id="secretscan", label="Поиск утёкших ключей", category="osint", module="osint",
+       prompt="Вставь текст или код — найду похожее на настоящие API-ключи/токены",
+       run=_osint("secretscan", "Поиск утёкших ключей"),
+       desc="Офлайн-регекс сканер: AWS/GitHub/Stripe/OpenAI/Slack и другие форматы ключей — без обращения к внешним сервисам"),
 
     # ---- OSINT: реальные CLI-инструменты с GitHub ----
     _t(id="theharvester", label="theHarvester", category="osint", module="osint",
@@ -815,6 +821,7 @@ SUBCATEGORY_LABELS: dict[str, str] = {
     "social": "👤 Юзернеймы и соцсети",
     "ipgeo": "📍 IP и геолокация",
     "images": "🖼 Изображения",
+    "secrets": "🔑 Секреты и ключи",
     "other": "🕸 Прочее",
 }
 _SUBCATEGORY = {
@@ -829,6 +836,7 @@ _SUBCATEGORY = {
     "socialscan": "social", "fio": "social",
     "geoip": "ipgeo", "shodan": "ipgeo", "threatintel": "ipgeo", "ioc": "ipgeo",
     "revimg": "images", "exif": "images",
+    "secretscan": "secrets",
     "darknet": "other",
 }
 for _tid, _sc in _SUBCATEGORY.items():

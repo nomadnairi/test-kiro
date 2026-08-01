@@ -128,6 +128,12 @@ class OSINTService:
         key = await self._key(user_id, "emailrep")
         return await m.emailrep_reputation(email, key)
 
+    async def secretscan(self, user_id: int, text: str) -> dict:
+        # Never log the pasted text itself — it may *contain* the secrets
+        # being searched for. Only the length goes in the audit trail.
+        await self._audit(user_id, "osint.secretscan", f"chars={len(text)}")
+        return m.scan_secrets(text)
+
     def exif(self, image_bytes: bytes) -> dict:
         return m.extract_exif(image_bytes)
 

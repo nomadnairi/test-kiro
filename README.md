@@ -27,7 +27,7 @@ SQLite) with role-based access, encrypted API keys and an audit log.
 ## Highlights
 
 - 🧭 **No commands** — the whole UI is buttons. Only `/start`, `/menu`, `/cancel` exist.
-- 🧰 **84 tools** in 9 categories, all generated from one registry — OSINT is further split into a sub-menu tree (Домены / Email и телефоны / Юзернеймы / IP / Изображения).
+- 🧰 **85 tools** in 9 categories, all generated from one registry — OSINT is further split into a sub-menu tree (Домены / Email и телефоны / Юзернеймы / IP / Изображения / Секреты и ключи).
 - 🧩 **Combine workflows** — one tap chains several tools into a single report:
   domain report, username profile, IP dossier, and a **person dossier** that
   pivots username → social profiles → emails/phones → leaks → name-search links.

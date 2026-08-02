@@ -31,11 +31,16 @@ SQLite) with role-based access, encrypted API keys and an audit log.
   alone is split into a sub-menu tree (Домены / Email и телефоны / Юзернеймы / IP /
   Изображения / Секреты и ключи), and every Пентест CLI (subfinder, httpx, nuclei,
   katana, gobuster, ffuf, amass, naabu, masscan, feroxbuster) is actually
-  compiled and installed in the Docker image, not just registered as a button.
-- 🔌 **Install your own tool from PyPI/GitHub at runtime** — owner-only
-  🛡 Админ → ➕ Установить инструмент runs `pipx` against a package spec you
-  paste in chat, verifies it really produced a working binary, and wires it
-  into the menu immediately (persists across restarts).
+  installed in the Docker image, not just registered as a button — most as a
+  direct download of the maintainer's own prebuilt release binary (no Go
+  toolchain needed at build time), amass via `go install` where no fixed
+  release-asset URL exists.
+- 🔌 **Install your own tool at runtime** — owner-only 🛡 Админ → ➕ Установить
+  инструмент supports two modes, auto-detected from what you paste: a PyPI/git
+  spec (installed via `pipx`) or a direct link to a prebuilt binary / .tar.gz /
+  .zip release (downloaded and unpacked directly, same idea as the Пентест CLIs
+  above). Either way it verifies a real, runnable binary resulted before wiring
+  it into the menu (persists across restarts).
 - 🧩 **Combine workflows** — one tap chains several tools into a single report:
   domain report, username profile, IP dossier, and a **person dossier** that
   pivots username → social profiles → emails/phones → leaks → name-search links.
@@ -144,16 +149,22 @@ with what it does:
 | TruffleHog | 800+ real per-provider secret detectors with format/checksum + entropy checks — far fewer false positives than the offline regex scanner (`--no-verification` always on: pasted secrets are never sent to a third-party API) |
 
 ### 🛠 Pentest (14) · *authorised targets only*
-| Native (always work) | External CLIs (compiled into the Docker image) |
+| Native (always work) | External CLIs (real binaries in the Docker image) |
 |---|---|
 | Port Scan · SSL Scan · Tech Detect | subfinder · amass · httpx · naabu · nuclei · katana · masscan · gobuster · ffuf · feroxbuster |
 
-All ten external CLIs above are actually built/downloaded in the `gobuild` Docker
-stage (Go tools via `go install`, feroxbuster via its official release script,
-masscan via apt) — none of them are just registered buttons hoping a binary
-shows up. `rustscan` is registered too but has no verified install step yet
-(its release-asset naming needs pinning to a version) — it will correctly
-report itself as "not installed" rather than pretend to work.
+All ten external CLIs above are actually installed, not just registered
+buttons hoping a binary shows up — verified one by one against the maintainer's
+own release artifacts before being wired in. Most (subfinder, httpx, naabu,
+nuclei, katana, gobuster, ffuf) are a plain `curl` + `unzip`/`tar` of a pinned
+GitHub release binary — no Go toolchain, no build step. feroxbuster and
+TruffleHog use their own official install scripts the same way. masscan is a
+real Debian package. amass is the one holdout still built via `go install`
+(its release-asset naming isn't a fixed, guessable pattern the way
+ProjectDiscovery's tools are). `rustscan` is registered too but has no
+verified install step yet (its release-asset naming needs pinning to a
+version) — it correctly reports itself as "not installed" rather than
+pretend to work.
 
 ### 🤖 AI (15) — 10 providers + one-shot utility modes
 `OpenAI` · `Claude` · `Gemini` · `OpenRouter` · `Groq` · `DeepSeek` · `Grok` ·

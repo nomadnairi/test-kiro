@@ -135,7 +135,7 @@ FIELD_LABELS: dict[str, str] = {
     "service": "сервис", "confidence": "уверенность", "match": "фрагмент",
     "line": "строка", "chars_scanned": "символов проверено",
     "label": "название", "spec": "источник", "binary": "бинарник", "tools": "инструменты",
-    "detector": "детектор", "verified": "подтверждён",
+    "detector": "детектор", "verified": "подтверждён", "method": "способ установки",
 }
 
 
@@ -1006,10 +1006,19 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
        kind="instant", run=_backup, desc="Скачать снимок базы (только владелец)"),
     _t(id="plugin_install", label="➕ Установить инструмент", category="admin", module="admin",
        background=True, run=_plugin_install,
-       prompt="Отправь: <code>id | pip-или-git-спецификатор | Название | Описание</code>\n"
-              "Пример: <code>trufflehog | truffleHog3 | TruffleHog | поиск секретов в репо</code>\n"
-              "Спецификатор — имя пакета PyPI или <code>git+https://github.com/автор/репо.git</code>.",
-       desc="Поставить свой CLI-инструмент из PyPI/GitHub через pipx (только владелец, выполняет чужой код!)"),
+       prompt="Отправь: <code>id | спецификатор | Название | Описание | бинарник</code>\n\n"
+              "Два режима (определяются автоматически):\n"
+              "• <b>pipx</b> — имя пакета PyPI или "
+              "<code>git+https://github.com/автор/репо.git</code>\n"
+              "• <b>прямая ссылка</b> — <code>https://.../tool_linux_amd64.tar.gz</code> "
+              "(.tar.gz/.zip или голый бинарник, как релизы на GitHub у большинства "
+              "Go/Rust-инструментов). Поле «бинарник» нужно только если в архиве больше "
+              "одного файла.\n\n"
+              "Примеры:\n"
+              "<code>dnstwist2 | dnstwist | dnstwist | тест</code>\n"
+              "<code>rustscan | https://github.com/автор/repo/releases/download/v1.0/"
+              "rustscan_amd64.tar.gz | rustscan</code>",
+       desc="Поставить свой CLI-инструмент из PyPI/GitHub (pipx) или напрямую по ссылке на бинарник/архив — без Go и без сборки (только владелец, выполняет чужой код!)"),
     _t(id="plugin_list", label="🧩 Мои инструменты", category="admin", module="admin",
        kind="instant", run=_plugin_list, desc="Список установленных вручную инструментов"),
     _t(id="plugin_remove", label="🗑 Удалить инструмент", category="admin", module="admin",

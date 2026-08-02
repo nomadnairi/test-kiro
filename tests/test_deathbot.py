@@ -626,3 +626,109 @@ def test_plugin_install_full_roundtrip_with_mocked_pipx(tmp_path, monkeypatch):
             await c.shutdown()
 
     asyncio.run(scenario())
+
+
+def test_plugin_install_from_raw_binary_url(tmp_path, monkeypatch):
+    """URL mode: a bare (non-archive) download IS the binary — no extraction."""
+    monkeypatch.setattr(plugins_mod, "PLUGINS_DIR", str(tmp_path / "plugins"))
+
+    async def fake_run_command(cmd, timeout=120, cwd=None, stdin=None, env=None):
+        if cmd[0] == "curl":
+            dest = Path(cmd[cmd.index("-o") + 1])
+            dest.write_text("#!/bin/sh\necho hi from url tool\n")
+            return CommandResult(True, "", "", 0)
+        if cmd and Path(cmd[0]).name == "urltool":
+            return CommandResult(True, "hi from url tool", "", 0)
+        return CommandResult(False, "", "missing", None, missing=True)
+
+    async def scenario():
+        with tempfile.TemporaryDirectory() as tmp:
+            s = load_settings()
+            s.database_path = str(Path(tmp) / "t.db")
+            c = Container.build(s)
+            await c.startup()
+            await c.access.register_seen(1, "o", "O")
+
+            with patch.object(plugins_mod, "run_command", side_effect=fake_run_command):
+                res = await c.plugins.install(
+                    1, "urltool | https://example.com/dl/urltool_linux_amd64 | URL Tool | test")
+            assert res["available"] is True, res
+            assert "urltool" in TOOLS
+
+            row = await c.repos.custom_tools.get("urltool")
+            assert row["method"] == "url"
+
+            await c.shutdown()
+
+    asyncio.run(scenario())
+
+
+def test_plugin_install_from_zip_url_autodetects_single_binary(tmp_path, monkeypatch):
+    """URL mode: a .zip archive auto-picks the one real binary, ignoring
+    LICENSE/README files that ship alongside it (matches real GitHub releases,
+    e.g. subfinder/httpx/naabu — verified against the real archives)."""
+    monkeypatch.setattr(plugins_mod, "PLUGINS_DIR", str(tmp_path / "plugins"))
+
+    async def fake_run_command(cmd, timeout=120, cwd=None, stdin=None, env=None):
+        if cmd[0] == "curl":
+            Path(cmd[cmd.index("-o") + 1]).write_bytes(b"fake zip bytes")
+            return CommandResult(True, "", "", 0)
+        if cmd[0] == "unzip":
+            out_dir = Path(cmd[cmd.index("-d") + 1])
+            (out_dir / "LICENSE").write_text("MIT")
+            (out_dir / "README.md").write_text("readme")
+            (out_dir / "ziptool").write_text("#!/bin/sh\necho hi from zip\n")
+            return CommandResult(True, "", "", 0)
+        if cmd and Path(cmd[0]).name == "ziptool":
+            return CommandResult(True, "hi from zip", "", 0)
+        return CommandResult(False, "", "missing", None, missing=True)
+
+    async def scenario():
+        with tempfile.TemporaryDirectory() as tmp:
+            s = load_settings()
+            s.database_path = str(Path(tmp) / "t.db")
+            c = Container.build(s)
+            await c.startup()
+            await c.access.register_seen(1, "o", "O")
+
+            with patch.object(plugins_mod, "run_command", side_effect=fake_run_command):
+                res = await c.plugins.install(
+                    1, "ziptool | https://example.com/dl/ziptool_linux_amd64.zip | Zip Tool | test")
+            assert res["available"] is True, res
+            assert res["binary"] == "ziptool"
+            assert "ziptool" in TOOLS
+
+            await c.shutdown()
+
+    asyncio.run(scenario())
+
+
+def test_plugin_install_from_archive_with_multiple_files_needs_hint():
+    async def fake_run_command(cmd, timeout=120, cwd=None, stdin=None, env=None):
+        if cmd[0] == "curl":
+            Path(cmd[cmd.index("-o") + 1]).write_bytes(b"fake zip bytes")
+            return CommandResult(True, "", "", 0)
+        if cmd[0] == "unzip":
+            out_dir = Path(cmd[cmd.index("-d") + 1])
+            (out_dir / "toolA").write_text("a")
+            (out_dir / "toolB").write_text("b")
+            return CommandResult(True, "", "", 0)
+        return CommandResult(False, "", "missing", None, missing=True)
+
+    async def scenario():
+        with tempfile.TemporaryDirectory() as tmp:
+            s = load_settings()
+            s.database_path = str(Path(tmp) / "t.db")
+            c = Container.build(s)
+            await c.startup()
+            await c.access.register_seen(1, "o", "O")
+
+            with patch.object(plugins_mod, "run_command", side_effect=fake_run_command):
+                res = await c.plugins.install(
+                    1, "ambiguous | https://example.com/dl/tool.zip | Ambiguous | test")
+            assert res["available"] is False
+            assert "ambiguous" not in TOOLS
+
+            await c.shutdown()
+
+    asyncio.run(scenario())

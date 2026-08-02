@@ -8,12 +8,12 @@ from .base import BaseRepository
 
 class CustomToolRepository(BaseRepository):
     async def add(self, tool_id: str, label: str, description: str, spec: str,
-                  package_name: str, binary_path: str, created_by: int) -> None:
+                  method: str, package_name: str, binary_path: str, created_by: int) -> None:
         await self.db.execute(
             "INSERT INTO custom_tools "
-            "(id, label, description, spec, package_name, binary_path, created_by) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            (tool_id, label, description, spec, package_name, binary_path, created_by),
+            "(id, label, description, spec, method, package_name, binary_path, created_by) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            (tool_id, label, description, spec, method, package_name, binary_path, created_by),
         )
 
     async def list_all(self) -> list[sqlite3.Row]:

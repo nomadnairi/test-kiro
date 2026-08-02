@@ -102,14 +102,16 @@ CREATE TABLE IF NOT EXISTS cache (
     expires_at    TEXT
 );
 
--- Tools the owner installed at runtime from a pip/git spec (pipx, isolated
--- venv on the persistent volume). Reloaded into the live registry on boot.
+-- Tools the owner installed at runtime — either via pipx (pip/git spec) or a
+-- direct binary/archive URL download — both isolated on the persistent
+-- volume. Reloaded into the live registry on boot.
 CREATE TABLE IF NOT EXISTS custom_tools (
     id            TEXT PRIMARY KEY,             -- slug used as the Tool id
     label         TEXT NOT NULL,
     description   TEXT NOT NULL DEFAULT '',
-    spec          TEXT NOT NULL,                -- pip/pipx install spec
-    package_name  TEXT NOT NULL,                -- resolved pipx venv name (for uninstall)
+    spec          TEXT NOT NULL,                -- pip/pipx spec, or the download URL
+    method        TEXT NOT NULL DEFAULT 'pipx',  -- 'pipx' | 'url' — decides how remove() cleans up
+    package_name  TEXT NOT NULL,                -- pipx: resolved venv name. url: the plugin dir
     binary_path   TEXT NOT NULL,                -- absolute path, verified at install time
     created_by    INTEGER NOT NULL,
     created_at    TEXT NOT NULL DEFAULT (datetime('now')),

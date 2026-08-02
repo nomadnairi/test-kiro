@@ -27,42 +27,18 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 # ---------------------------------------------------------------------------
-# Stage 1b: gobuild — compile the Go-based recon/pentest CLIs, and fetch the
-# prebuilt phoneinfoga binary
+# Stage 1b: gobuild — compile amass, the one recon tool left needing an
+# actual Go toolchain (see note below)
 # ---------------------------------------------------------------------------
-# phoneinfoga embeds a web client (go:embed client/dist/*) that is not present
-# in a plain `go install`, so it is downloaded as a release binary instead.
-#
-# `go install` auto-switches to whatever newer Go toolchain a module's go.mod
-# demands (verified against this exact base: httpx/nuclei/katana/gobuster all
-# pulled a newer 1.25/1.26 toolchain on demand and built clean) — the base
-# image version below is just the floor, not a hard pin.
+# Every other Go-based CLI here moved to a plain `curl`+`unzip`/`tar` download
+# of the maintainer's own prebuilt release binary in the runtime stage — no
+# Go toolchain, no build step, no toolchain-version surprises, just a file
+# download (same idea as feroxbuster/TruffleHog/masscan below). amass is the
+# lone holdout: its release-asset naming isn't a fixed, guessable pattern the
+# way ProjectDiscovery's tools are, so `go install` is what's verified to work.
 FROM golang:1.22-bookworm AS gobuild
 ENV CGO_ENABLED=0 GOBIN=/out
 RUN mkdir -p /out
-RUN go install github.com/lc/gau/v2/cmd/gau@latest \
-    || echo "WARN: gau build failed (tool will be reported as not installed)"
-RUN curl -sSL "https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install" \
-        | bash -s -- -b /out \
-    || echo "WARN: phoneinfoga download failed (tool will be reported as not installed)"
-
-# ProjectDiscovery + community recon/pentest tools — real binaries for the
-# "Пентест" menu (these were registered as buttons but never actually built
-# into the image before; every one of them build-verified here first).
-RUN go install github.com/projectdiscovery/subfinder/v2/cmd/subfinder@latest \
-    || echo "WARN: subfinder build failed (tool will be reported as not installed)"
-RUN go install github.com/projectdiscovery/httpx/cmd/httpx@latest \
-    || echo "WARN: httpx build failed (tool will be reported as not installed)"
-RUN go install github.com/projectdiscovery/naabu/v2/cmd/naabu@latest \
-    || echo "WARN: naabu build failed (tool will be reported as not installed)"
-RUN go install github.com/projectdiscovery/nuclei/v3/cmd/nuclei@latest \
-    || echo "WARN: nuclei build failed (tool will be reported as not installed)"
-RUN go install github.com/projectdiscovery/katana/cmd/katana@latest \
-    || echo "WARN: katana build failed (tool will be reported as not installed)"
-RUN go install github.com/OJ/gobuster/v3@latest \
-    || echo "WARN: gobuster build failed (tool will be reported as not installed)"
-RUN go install github.com/ffuf/ffuf/v2@latest \
-    || echo "WARN: ffuf build failed (tool will be reported as not installed)"
 RUN go install github.com/owasp-amass/amass/v4/...@master \
     || echo "WARN: amass build failed (tool will be reported as not installed)"
 
@@ -112,6 +88,52 @@ RUN curl -sSL "https://github.com/trufflesecurity/trufflehog/releases/download/v
     && rm -f /tmp/trufflehog.tar.gz \
     || echo "WARN: trufflehog download failed (tool will be reported as not installed)"
 
+# phoneinfoga — same reasoning as TruffleHog above: no `go install` path
+# (embeds a web client via go:embed that a plain install can't see), official
+# script, fixed release-asset URLs.
+RUN curl -sSL "https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install" \
+        | bash -s -- -b /usr/local/bin \
+    || echo "WARN: phoneinfoga download failed (tool will be reported as not installed)"
+
+# ProjectDiscovery + community recon/pentest tools — every one of these
+# publishes its own prebuilt Linux binary on GitHub Releases, so there is no
+# need for `go install` (or the Go toolchain at all) here. Each asset URL and
+# archive layout was verified for real before being wired in. Versions are
+# pinned (not resolved via /releases/latest, which needs the GitHub API) —
+# bump these occasionally.
+ARG SUBFINDER_VERSION=2.9.0
+ARG HTTPX_VERSION=1.9.0
+ARG NAABU_VERSION=2.6.1
+ARG NUCLEI_VERSION=3.9.0
+ARG KATANA_VERSION=1.6.1
+ARG GOBUSTER_VERSION=3.8.2
+ARG FFUF_VERSION=2.2.1
+ARG GAU_VERSION=2.2.4
+RUN curl -sSL -o /tmp/subfinder.zip "https://github.com/projectdiscovery/subfinder/releases/download/v${SUBFINDER_VERSION}/subfinder_${SUBFINDER_VERSION}_linux_amd64.zip" \
+        && unzip -o -q /tmp/subfinder.zip subfinder -d /usr/local/bin && rm -f /tmp/subfinder.zip \
+    || echo "WARN: subfinder download failed (tool will be reported as not installed)"
+RUN curl -sSL -o /tmp/httpx.zip "https://github.com/projectdiscovery/httpx/releases/download/v${HTTPX_VERSION}/httpx_${HTTPX_VERSION}_linux_amd64.zip" \
+        && unzip -o -q /tmp/httpx.zip httpx -d /usr/local/bin && rm -f /tmp/httpx.zip \
+    || echo "WARN: httpx download failed (tool will be reported as not installed)"
+RUN curl -sSL -o /tmp/naabu.zip "https://github.com/projectdiscovery/naabu/releases/download/v${NAABU_VERSION}/naabu_${NAABU_VERSION}_linux_amd64.zip" \
+        && unzip -o -q /tmp/naabu.zip naabu -d /usr/local/bin && rm -f /tmp/naabu.zip \
+    || echo "WARN: naabu download failed (tool will be reported as not installed)"
+RUN curl -sSL -o /tmp/nuclei.zip "https://github.com/projectdiscovery/nuclei/releases/download/v${NUCLEI_VERSION}/nuclei_${NUCLEI_VERSION}_linux_amd64.zip" \
+        && unzip -o -q /tmp/nuclei.zip nuclei -d /usr/local/bin && rm -f /tmp/nuclei.zip \
+    || echo "WARN: nuclei download failed (tool will be reported as not installed)"
+RUN curl -sSL -o /tmp/katana.zip "https://github.com/projectdiscovery/katana/releases/download/v${KATANA_VERSION}/katana_${KATANA_VERSION}_linux_amd64.zip" \
+        && unzip -o -q /tmp/katana.zip katana -d /usr/local/bin && rm -f /tmp/katana.zip \
+    || echo "WARN: katana download failed (tool will be reported as not installed)"
+RUN curl -sSL -o /tmp/gobuster.tar.gz "https://github.com/OJ/gobuster/releases/download/v${GOBUSTER_VERSION}/gobuster_Linux_x86_64.tar.gz" \
+        && tar -xzf /tmp/gobuster.tar.gz -C /usr/local/bin gobuster && rm -f /tmp/gobuster.tar.gz \
+    || echo "WARN: gobuster download failed (tool will be reported as not installed)"
+RUN curl -sSL -o /tmp/ffuf.tar.gz "https://github.com/ffuf/ffuf/releases/download/v${FFUF_VERSION}/ffuf_${FFUF_VERSION}_linux_amd64.tar.gz" \
+        && tar -xzf /tmp/ffuf.tar.gz -C /usr/local/bin ffuf && rm -f /tmp/ffuf.tar.gz \
+    || echo "WARN: ffuf download failed (tool will be reported as not installed)"
+RUN curl -sSL -o /tmp/gau.tar.gz "https://github.com/lc/gau/releases/download/v${GAU_VERSION}/gau_${GAU_VERSION}_linux_amd64.tar.gz" \
+        && tar -xzf /tmp/gau.tar.gz -C /usr/local/bin gau && rm -f /tmp/gau.tar.gz \
+    || echo "WARN: gau download failed (tool will be reported as not installed)"
+
 # pipx installs each OSINT CLI into its own venv (no dependency clashes with the
 # bot's runtime) and drops the entrypoints into /usr/local/bin (on PATH for all
 # users). Kept in one layer; failures in a single tool don't abort the build.
@@ -131,7 +153,8 @@ RUN for pkg in \
         || echo "WARN: pipx install theHarvester failed (tool will be reported as not installed)") \
     && rm -rf /root/.cache
 
-# Go / release OSINT binaries (whatever built successfully lands here).
+# amass (the one tool still built via `go install` — see the gobuild stage
+# comment above for why the others don't need this).
 COPY --from=gobuild /out/ /usr/local/bin/
 
 ENV PYTHONUNBUFFERED=1 \

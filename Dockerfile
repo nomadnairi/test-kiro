@@ -99,6 +99,19 @@ RUN curl -sSL "https://raw.githubusercontent.com/epi052/feroxbuster/main/install
         | bash -s -- /usr/local/bin \
     || echo "WARN: feroxbuster download failed (tool will be reported as not installed)"
 
+# TruffleHog — `go install` does NOT work for this module: its go.mod carries
+# replace directives, which Go's module system refuses for `go install
+# module@version` on principle (not a network/proxy issue, fails identically
+# everywhere). Only the prebuilt release binary works. Version pinned rather
+# than resolved via /releases/latest (which needs the GitHub API — bump this
+# tag occasionally): https://github.com/trufflesecurity/trufflehog/releases
+ARG TRUFFLEHOG_VERSION=3.96.0
+RUN curl -sSL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz" \
+        -o /tmp/trufflehog.tar.gz \
+    && tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin trufflehog \
+    && rm -f /tmp/trufflehog.tar.gz \
+    || echo "WARN: trufflehog download failed (tool will be reported as not installed)"
+
 # pipx installs each OSINT CLI into its own venv (no dependency clashes with the
 # bot's runtime) and drops the entrypoints into /usr/local/bin (on PATH for all
 # users). Kept in one layer; failures in a single tool don't abort the build.

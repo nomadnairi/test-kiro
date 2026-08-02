@@ -134,6 +134,10 @@ class OSINTService:
         await self._audit(user_id, "osint.secretscan", f"chars={len(text)}")
         return m.scan_secrets(text)
 
+    async def trufflehog(self, user_id: int, text: str) -> dict:
+        await self._audit(user_id, "osint.trufflehog", f"chars={len(text)}")
+        return await m.trufflehog_scan(text)
+
     def exif(self, image_bytes: bytes) -> dict:
         return m.extract_exif(image_bytes)
 

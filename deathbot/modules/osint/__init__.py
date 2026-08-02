@@ -18,6 +18,7 @@ from .secretscan import scan_text as scan_secrets
 from .shodan import shodan_host
 from .subdomains import subdomains
 from .threatintel import threat_intel
+from .trufflehog import scan as trufflehog_scan
 from .username import username_search
 from .whois import whois_lookup
 
@@ -42,6 +43,7 @@ __all__ = [
     "shodan_host",
     "subdomains",
     "threat_intel",
+    "trufflehog_scan",
     "username_search",
     "whois_lookup",
 ]

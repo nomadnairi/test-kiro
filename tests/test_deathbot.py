@@ -16,6 +16,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 import httpx
 
+import deathbot.modules.osint.trufflehog as trufflehog_mod
 import deathbot.services.plugins as plugins_mod
 from deathbot.ai.providers.base import error_detail
 from deathbot.ai.router import AIRouter
@@ -26,6 +27,7 @@ from deathbot.modules.osint.ioc import classify_ioc
 from deathbot.modules.osint.phone import phone_search
 from deathbot.mdconvert import md_to_html
 from deathbot.modules.osint.secretscan import scan_text
+from deathbot.modules.osint.trufflehog import scan as trufflehog_scan
 from deathbot.registry import TOOLS, human, strip_html, tools_in
 from deathbot.services.export import ExportService
 from deathbot.util import CommandResult, validate_input
@@ -186,6 +188,90 @@ def test_secretscan_deduplicates_repeated_matches():
     secret = "AKIAABCDEFGHIJKLMNOP"
     r = scan_text(f"{secret}\n...\n{secret}")
     assert r["count"] == 1
+
+
+# --------------------------------------------------------------------------- #
+# TruffleHog wrapper — run_command is mocked (no real subprocess/network in
+# the committed suite); the actual binary was verified separately against a
+# real downloaded release, including that it correctly ignores a fake
+# low-entropy AWS-shaped string the regex scanner above would have flagged.
+# --------------------------------------------------------------------------- #
+def test_trufflehog_parses_findings_and_masks_secret():
+    json_line = (
+        '{"SourceMetadata":{"Data":{"Filesystem":{"file":"/tmp/x.txt","line":2}}},'
+        '"DetectorName":"Github","Verified":false,'
+        '"Raw":"ghp_i0VpEBOWfbZAVaBSo63bbH6xnAbnBEoonCrb"}'
+    )
+    stdout = (
+        '{"level":"info-0","msg":"running source"}\n'
+        f"{json_line}\n"
+        '{"level":"info-0","msg":"finished scanning"}\n'
+    )
+
+    async def fake_run_command(cmd, timeout=120, cwd=None, stdin=None, env=None):
+        assert cmd[0] == "trufflehog"
+        assert "filesystem" in cmd and "--no-verification" in cmd and "--json" in cmd
+        return CommandResult(True, stdout, "", 0)
+
+    async def scenario():
+        with patch.object(trufflehog_mod, "run_command", side_effect=fake_run_command):
+            return await trufflehog_scan("some text with a token")
+
+    r = asyncio.run(scenario())
+    assert r["available"] is True
+    assert r["count"] == 1
+    f = r["findings"][0]
+    assert f["detector"] == "Github"
+    assert f["verified"] is False
+    assert f["line"] == 2
+    assert "ghp_i0VpEBOWfbZAVaBSo63bbH6xnAbnBEoonCrb" not in f["match"]
+    assert f["match"].startswith("ghp_i0")
+
+
+def test_trufflehog_ignores_non_finding_log_lines():
+    stdout = '{"level":"info-0","msg":"finished scanning","chunks":1}\n'
+
+    async def fake_run_command(cmd, timeout=120, cwd=None, stdin=None, env=None):
+        return CommandResult(True, stdout, "", 0)
+
+    async def scenario():
+        with patch.object(trufflehog_mod, "run_command", side_effect=fake_run_command):
+            return await trufflehog_scan("clean text, nothing here")
+
+    r = asyncio.run(scenario())
+    assert r["available"] is True
+    assert r["count"] == 0
+    assert r["findings"] == []
+
+
+def test_trufflehog_reports_not_installed_cleanly():
+    async def fake_run_command(cmd, timeout=120, cwd=None, stdin=None, env=None):
+        return CommandResult(False, "", "trufflehog not installed", None, missing=True)
+
+    async def scenario():
+        with patch.object(trufflehog_mod, "run_command", side_effect=fake_run_command):
+            return await trufflehog_scan("text")
+
+    r = asyncio.run(scenario())
+    assert r["available"] is False
+    assert "reason" in r
+
+
+def test_trufflehog_cleans_up_its_temp_file():
+    seen_paths = []
+
+    async def fake_run_command(cmd, timeout=120, cwd=None, stdin=None, env=None):
+        path = cmd[-1]
+        seen_paths.append(path)
+        assert Path(path).exists()  # the scanned text really was written there
+        return CommandResult(True, "", "", 0)
+
+    async def scenario():
+        with patch.object(trufflehog_mod, "run_command", side_effect=fake_run_command):
+            await trufflehog_scan("text to scan")
+
+    asyncio.run(scenario())
+    assert seen_paths and not Path(seen_paths[0]).exists()
 
 
 # --------------------------------------------------------------------------- #

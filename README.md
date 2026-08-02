@@ -2,7 +2,7 @@
 
 <p align="center">
   <b>A button-driven Telegram bot for OSINT, recon & AI.</b><br>
-  Tap a menu — no commands to memorize. 123+ tools, 10 AI providers, 8 export formats.
+  Tap a menu — no commands to memorize. 124+ tools, 10 AI providers, 8 export formats.
 </p>
 
 <p align="center">
@@ -27,7 +27,7 @@ SQLite) with role-based access, encrypted API keys and an audit log.
 ## Highlights
 
 - 🧭 **No commands** — the whole UI is buttons. Only `/start`, `/menu`, `/cancel` exist.
-- 🧰 **123+ tools** across 10 categories, all generated from one registry — OSINT
+- 🧰 **124+ tools** across 10 categories, all generated from one registry — OSINT
   alone is split into a sub-menu tree (Домены / Email и телефоны / Юзернеймы / IP /
   Изображения / Секреты и ключи), and every Пентест CLI (subfinder, httpx, nuclei,
   katana, gobuster, ffuf, amass, naabu, masscan, feroxbuster) is actually
@@ -109,7 +109,7 @@ are generated automatically. No new command, no new handler.
 
 ## Tools
 
-### 🔎 OSINT (34) — grouped into a sub-menu tree (see screenshot above)
+### 🔎 OSINT (35) — grouped into a sub-menu tree (see screenshot above)
 
 **Built-in (19)**
 
@@ -125,7 +125,7 @@ are generated automatically. No new command, no new handler.
 | Поиск утёкших ключей | offline regex scanner for leaked API keys/tokens | — |
 | Reverse Image · EXIF · Darknet | image OSINT & metadata | — |
 
-**Real GitHub CLIs (15)** — installed in the Docker image, each button labelled
+**Real GitHub CLIs (16)** — installed in the Docker image, each button labelled
 with what it does:
 
 | Tool | Does |
@@ -141,6 +141,7 @@ with what it does:
 | MetaFinder | metadata from a domain's public documents |
 | gau | known URLs (Wayback / OTX / CommonCrawl) |
 | PhoneInfoga | phone-number OSINT |
+| TruffleHog | 800+ real per-provider secret detectors with format/checksum + entropy checks — far fewer false positives than the offline regex scanner (`--no-verification` always on: pasted secrets are never sent to a third-party API) |
 
 ### 🛠 Pentest (14) · *authorised targets only*
 | Native (always work) | External CLIs (compiled into the Docker image) |

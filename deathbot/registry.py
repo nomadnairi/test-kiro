@@ -135,6 +135,7 @@ FIELD_LABELS: dict[str, str] = {
     "service": "сервис", "confidence": "уверенность", "match": "фрагмент",
     "line": "строка", "chars_scanned": "символов проверено",
     "label": "название", "spec": "источник", "binary": "бинарник", "tools": "инструменты",
+    "detector": "детектор", "verified": "подтверждён",
 }
 
 
@@ -758,6 +759,10 @@ TOOLS: dict[str, Tool] = {t.id: t for t in [
        prompt="Вставь текст или код — найду похожее на настоящие API-ключи/токены",
        run=_osint("secretscan", "Поиск утёкших ключей"),
        desc="Офлайн-регекс сканер: AWS/GitHub/Stripe/OpenAI/Slack и другие форматы ключей — без обращения к внешним сервисам"),
+    _t(id="trufflehog", label="TruffleHog (глубокий поиск)", category="osint", module="osint",
+       prompt="Вставь текст или код — прогоню через TruffleHog",
+       run=_osint("trufflehog", "TruffleHog"),
+       desc="800+ детекторов с проверкой формата (не просто похоже на ключ, а реально им является). Без --verify: секреты никуда не отправляются"),
 
     # ---- OSINT: реальные CLI-инструменты с GitHub ----
     _t(id="theharvester", label="theHarvester", category="osint", module="osint",
@@ -1125,7 +1130,7 @@ _BACKGROUND = {
     "whatweb", "gau", "phoneinfoga",
     "subfinder", "amass", "httpx", "naabu", "nuclei", "katana", "masscan",
     "rustscan", "gobuster", "ffuf", "ferox",
-    "subdomains", "portscan",
+    "subdomains", "portscan", "trufflehog",
 }
 for _tid in _BACKGROUND:
     if _tid in TOOLS:
@@ -1173,6 +1178,7 @@ _SUBCATEGORY = {
     "geoip": "ipgeo", "shodan": "ipgeo", "threatintel": "ipgeo", "ioc": "ipgeo",
     "revimg": "images", "exif": "images",
     "secretscan": "secrets",
+    "trufflehog": "secrets",
     "darknet": "other",
 }
 for _tid, _sc in _SUBCATEGORY.items():

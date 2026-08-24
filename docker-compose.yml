@@ -27,6 +27,8 @@ services:
     read_only: true
     tmpfs:
       - /tmp
+      - /home/deathbot/.config:uid=10001,gid=10001
+      - /home/deathbot/.local:uid=10001,gid=10001
     security_opt:
       - no-new-privileges:true
     cap_drop:

@@ -16,3 +16,7 @@ class ToolFlow(StatesGroup):
 class ApiKeyFlow(StatesGroup):
     waiting_provider = State()
     waiting_value = State()
+
+
+class InvestigateFlow(StatesGroup):
+    waiting_goal = State()

@@ -13,10 +13,11 @@ Visible = Callable[[str], bool]  # module scope -> allowed?
 
 def main_menu(visible: Visible) -> InlineKeyboardMarkup:
     kb = InlineKeyboardBuilder()
+    kb.button(text="🔎 Investigate", callback_data="inv:new")
     for cat_id, label in CATEGORIES:
         if any(visible(t.module) for t in tools_in(cat_id)):
             kb.button(text=label, callback_data=f"cat:{cat_id}")
-    kb.adjust(2)
+    kb.adjust(1, 2, 2, 2, 2)
     return kb.as_markup()
 
 

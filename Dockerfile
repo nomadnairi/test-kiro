@@ -57,7 +57,7 @@ FROM python:${PYTHON_VERSION} AS runtime
 #   unzip  → feroxbuster's official install script unpacks a .zip release
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
-        tini procps whois nmap whatweb git ca-certificates pipx unzip \
+        tini procps whois nmap whatweb git ca-certificates pipx unzip curl \
     && rm -rf /var/lib/apt/lists/*
 
 # masscan is packaged for Debian directly — kept in its own non-fatal layer
@@ -89,10 +89,14 @@ RUN curl -sSL "https://github.com/trufflesecurity/trufflehog/releases/download/v
     || echo "WARN: trufflehog download failed (tool will be reported as not installed)"
 
 # phoneinfoga — same reasoning as TruffleHog above: no `go install` path
-# (embeds a web client via go:embed that a plain install can't see), official
-# script, fixed release-asset URLs.
-RUN curl -sSL "https://raw.githubusercontent.com/sundowndev/phoneinfoga/master/support/scripts/install" \
-        | bash -s -- -b /usr/local/bin \
+# (embeds a web client via go:embed that a plain install can't see). The
+# upstream install script silently broke (it shells out to tooling the slim
+# runtime image lacks); a direct release-asset download is deterministic.
+ARG PHONEINFOGA_VERSION=2.11.0
+RUN curl -sSL -o /tmp/phoneinfoga.tar.gz \
+        "https://github.com/sundowndev/phoneinfoga/releases/download/v${PHONEINFOGA_VERSION}/phoneinfoga_Linux_x86_64.tar.gz" \
+    && tar -xzf /tmp/phoneinfoga.tar.gz -C /usr/local/bin phoneinfoga \
+    && rm -f /tmp/phoneinfoga.tar.gz \
     || echo "WARN: phoneinfoga download failed (tool will be reported as not installed)"
 
 # ProjectDiscovery + community recon/pentest tools — every one of these
@@ -157,6 +161,37 @@ RUN for pkg in \
 # comment above for why the others don't need this).
 COPY --from=gobuild /out/ /usr/local/bin/
 
+# ---------------------------------------------------------------------------
+# H2/PHASE-3 build gate: the downloads above keep their `|| echo WARN` so a
+# single flaky GitHub mirror can't kill the whole build, but a missing binary
+# must never pass silently again (the 02.08 image shipped with 11 tools dead
+# and nobody noticed). This step FAILS THE BUILD if any required tool is
+# absent, listing exactly which ones — fix the network and rebuild instead of
+# deploying a bot whose buttons report "не установлен".
+# ---------------------------------------------------------------------------
+ARG REQUIRED_TOOLS="subfinder httpx naabu nuclei katana gobuster ffuf gau amass trufflehog phoneinfoga feroxbuster sherlock holehe maigret socialscan h8mail dnstwist dnsrecon sublist3r checkdmarc wafw00f metafinder theHarvester whois masscan whatweb"
+RUN missing=""; \
+    for t in $REQUIRED_TOOLS; do \
+        command -v "$t" >/dev/null 2>&1 || missing="$missing $t"; \
+    done; \
+    if [ -n "$missing" ]; then \
+        echo "BUILD FAILED — required OSINT tools not installed:$missing" >&2; \
+        exit 1; \
+    fi; \
+    echo "build gate: all required OSINT tools present"
+
+# The Python `httpx` library installs a broken CLI shim into /opt/venv/bin
+# that shadows ProjectDiscovery's httpx on PATH (the library needs the
+# `[cli]` extra for its CLI, which we don't use — but the shim still wins
+# name resolution). The bot uses httpx as a *library* only, so removing the
+# shim leaves PD's recon binary as the one true `httpx`.
+RUN rm -f /opt/venv/bin/httpx
+
+# exiftool is optional (EXIF has an in-process PIL fallback) but wanted.
+RUN command -v exiftool >/dev/null 2>&1 \
+    || apt-get update && apt-get install -y --no-install-recommends libimage-exiftool-perl \
+    && rm -rf /var/lib/apt/lists/*
+
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PATH="/opt/venv/bin:$PATH" \
@@ -166,14 +201,21 @@ ENV PYTHONUNBUFFERED=1 \
 
 COPY --from=builder /opt/venv /opt/venv
 
+# The Python `httpx` library ships a CLI shim in the venv that shadows
+# ProjectDiscovery's httpx recon binary on PATH (the shim needs the `[cli]`
+# extra to actually work, which we don't install). Remove it AFTER the venv
+# lands so PD's binary is the one true `httpx`. The library itself stays.
+RUN rm -f /opt/venv/bin/httpx
+
 WORKDIR /app
 COPY deathbot/ ./deathbot/
 COPY config.yaml smoke_test.py ./
 
 # Unprivileged user; /app stays read-only to it, /data is the only writable path.
 RUN useradd --create-home --uid 10001 deathbot \
-    && mkdir -p /data \
-    && chown -R deathbot:deathbot /data
+    && mkdir -p /data /home/deathbot/.config/subfinder \
+    && echo "# minimal subfinder config" > /home/deathbot/.config/subfinder/config.yaml \
+    && chown -R deathbot:deathbot /data /home/deathbot/.config
 
 USER deathbot
 VOLUME ["/data"]

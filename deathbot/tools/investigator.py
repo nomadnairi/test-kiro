@@ -30,6 +30,16 @@ MAX_FINDINGS = 400      # hard cap on stored findings
 
 
 # Tools the investigator may run autonomously. Everything here is passive.
+#: Tools whose output lists found social accounts per platform.
+_USERNAME_TOOLS = frozenset({
+    "sherlock_cli", "maigret", "socialscan", "username",
+})
+#: Hosts that show up in tool output but are not the user's accounts.
+_NOISE_HOSTS = (
+    "google.com", "duckduckgo.com", "bing.com", "github.com",
+    "telegram.org", "core.telegram.org", "pypi.org",
+)
+
 PASSIVE_TOOL_IDS: tuple[str, ...] = (
     # native service methods (no external binary needed):
     "whois", "dns", "subdomains", "username", "email", "phone", "geoip",
@@ -58,6 +68,31 @@ class AIInvestigator:
         self.osint = osint_service
 
     # -- planning ------------------------------------------------------------
+
+    @staticmethod
+    def extract_username(goal: str) -> str:
+        """Pull the actual handle out of a natural-language goal.
+
+        The AI analysis of a live run showed the whole sentence
+        "проверь ник death gun, а потом посмотри поочередно" was fed to
+        sherlock as the username. This extracts the token(s) after words
+        like "ник/username/@…" and drops instruction tails.
+        """
+        text = goal.strip().lstrip("@")
+        m = re.search(
+            r"(?:ник|username|user|юзернейм|логин|аккаунт)\s*[:\-]?\s*"
+            r"@?([A-Za-z0-9_](?:[A-Za-z0-9_. ]{0,30}[A-Za-z0-9_.])?)",
+            text, re.IGNORECASE)
+        if not m:
+            return text.split(".")[0].split("!")[0].split("?")[0].strip()
+        name = m.group(1).strip()
+        # Cut at instruction tails ("а потом посмотри", "и скажи…") — but
+        # keep dots/underscores that belong to the handle itself.
+        name = re.split(
+            r"\s+(?:а\s+потом|затем|потом|и\s+скажи|и\s+покажи|"
+            r"and then|then)\b",
+            name, flags=re.IGNORECASE)[0].strip(" ,.;:!?")
+        return name or text
 
     async def classify_target(self, raw: str) -> str:
         """LLM-assisted target classification with regex fallback."""
@@ -173,6 +208,14 @@ class AIInvestigator:
         kind = await self.classify_target(inv.root_target or inv.goal)
         if not inv.root_target:
             inv.root_target = inv.goal.strip()
+        # Username goals arrive as sentences ("проверь ник death gun, а
+        # потом…"); the tools need the bare handle.
+        if kind == "username":
+            handle = self.extract_username(inv.root_target)
+            if handle and handle != inv.root_target:
+                inv.notes.append(
+                    f"username extracted from NL goal: {handle!r}")
+                inv.root_target = handle
 
         inv.graph.add(kind, inv.root_target, by_tool="plan")
 
@@ -284,10 +327,38 @@ def _extract_entities(inv: Investigation, tool: str, text: str,
     root = (inv.root_target or "").lower()
     for prefix in ("https://", "http://"):
         root = root.removeprefix(prefix)
-    if root:
-        for s in list(subs)[:25]:
-            if s != root and s.endswith(root) and " " not in s:
-                inv.add_finding("subdomain", s, tool, related_to=root)
+    if root and "." in root:
+        for sub in list(subs)[:25]:
+            if sub != root and sub.endswith(root) and " " not in sub:
+                inv.add_finding("subdomain", sub, tool, related_to=root)
+
+    # Social-profile extraction (H2 fix): username tools report found
+    # accounts as "[+] Platform: https://site.tld/profile/username" or
+    # "Platform: <status text>". Each such URL is a real social account —
+    # the whole point of a username investigation. Without this the report
+    # showed only counts ("13 findings") with zero sites listed.
+    if tool in _USERNAME_TOOLS:
+        profile_urls = re.findall(
+            r"https?://[^\s)\"']+", text)
+        seen: set[str] = set()
+        count = 0
+        for u in profile_urls:
+            host_m = re.match(r"https?://([^/]+)", u)
+            if not host_m:
+                continue
+            host = host_m.group(1).lower().removeprefix("www.")
+            # Skip pure search-engine / aggregator noise.
+            if any(host.endswith(d) for d in _NOISE_HOSTS):
+                continue
+            if host in seen:
+                continue
+            seen.add(host)
+            inv.add_finding("social_account", host,
+                            tool, related_to=inv.root_target,
+                            context=u[:120])
+            count += 1
+            if count >= 30:
+                break
 
 
 from ..ai import ChatMessage

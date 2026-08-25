@@ -12,6 +12,21 @@ def _now() -> float:
     return time.time()
 
 
+class Confidence(str, Enum):
+    CONFIRMED = "CONFIRMED"      # ≥2 независимых источника или прямое указание
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+    UNKNOWN = "UNKNOWN"
+
+
+@dataclass
+class Evidence:
+    tool: str
+    detail: str = ""
+    at: float = field(default_factory=lambda: time.time())
+
+
 class InvStatus(str, Enum):
     CREATED = "created"
     PLANNING = "planning"
@@ -53,10 +68,25 @@ class Entity:
     kind: str
     value: str
     discovered_by: list[str] = field(default_factory=list)   # tool ids
+    evidence: list[Evidence] = field(default_factory=list)
+    confidence: Confidence = Confidence.LOW
 
     @property
     def key(self) -> str:
         return f"{self.kind}:{self.value.lower()}"
+
+    def add_evidence(self, tool: str, detail: str = "") -> None:
+        self.evidence.append(Evidence(tool=tool, detail=detail))
+        if tool not in self.discovered_by:
+            self.discovered_by.append(tool)
+        # Confidence grows with the number of independent sources.
+        sources = len({e.tool for e in self.evidence})
+        if sources >= 2 or any(
+                e.tool in ("whois", "dns", "shodan") for e in self.evidence):
+            self.confidence = Confidence.CONFIRMED
+        elif sources == 1 and self.evidence[0].tool in (
+                "subfinder", "httpx", "whatweb"):
+            self.confidence = Confidence.MEDIUM
 
 
 class EntityGraph:
@@ -64,7 +94,9 @@ class EntityGraph:
 
     def __init__(self) -> None:
         self.nodes: dict[str, Entity] = {}
-        self.edges: list[tuple[str, str, str]] = []   # (src_key, rel, dst_key)
+        # (src_key, relationship, dst_key, evidence_tool, confidence)
+        self.edges: list[tuple[str, str, str, str, Confidence]] = []
+        self.conflicts: list[dict] = []               # contradictory findings
 
     def add(self, kind: str, value: str, by_tool: str,
             related_to: str | None = None, rel: str = "resolved_from") -> bool:
@@ -83,12 +115,19 @@ class EntityGraph:
             src = f"{kind_guess(related_to)}:{related_to.lower()}"
             if src not in self.nodes:
                 src = related_to.lower()
-            self.edges.append((src, rel, e.key))
+            self.edges.append((src, rel, e.key, by_tool, Confidence.LOW))
         return not existed
+
+    def report_conflict(self, subject: str, aspect: str,
+                        values: dict[str, str]) -> None:
+        """Two tools disagree about the same fact — recorded with sources,
+        never resolved by coin-flip."""
+        self.conflicts.append({"subject": subject, "aspect": aspect,
+                               "claims": values})
 
     def related(self, key: str) -> list[str]:
         out = []
-        for s, _, d in self.edges:
+        for s, _rel, d, _t, _c in self.edges:
             if s == key:
                 out.append(d)
             elif d == key:
@@ -138,11 +177,22 @@ class Investigation:
     def add_finding(self, kind: str, value: str, tool: str,
                     related_to: str | None = None,
                     context: str = "") -> bool:
-        """Register a finding + graph node; returns True when new."""
-        new_entity = self.graph.add(kind, value, tool, related_to)
-        self.findings.append(Finding(tool=tool, kind=kind, value=value,
-                                     context=context))
-        return new_entity
+        """Register a finding + graph node; returns True when new.
+
+        Repeats are not discarded blindly: each repeat strengthens the
+        entity's evidence list (cross-verification), only the findings log
+        stays deduplicated.
+        """
+        node_key = f"{kind}:{value.lower()}"
+        seen_before = node_key in self.graph.nodes
+        self.graph.add(kind, value, tool, related_to)
+        node = self.graph.nodes.get(node_key)
+        if node is not None:
+            node.add_evidence(tool, context[:80])
+        if not seen_before:
+            self.findings.append(Finding(tool=tool, kind=kind, value=value,
+                                         context=context))
+        return not seen_before
 
     def done_tools(self) -> set[str]:
         """Tool ids already executed against a given target context — used to
@@ -189,15 +239,38 @@ class Investigation:
         ok_runs = [r for r in self.runs if r.status == "success"]
         empty = [r for r in self.runs if r.status == "empty"]
         failed = [r for r in self.runs if r.status == "failed"]
-        lines.append("🧰 TOOLS")
+        lines.append("🧰 TOOLS EXECUTED")
         for r in ok_runs:
             lines.append(f"├─ ✅ {r.tool_id}: {r.findings_count} findings")
         for r in empty:
             lines.append(f"├─ ➖ {r.tool_id}: no data")
         for r in failed:
             lines.append(f"├─ ❌ {r.tool_id}: {r.error[:40]}")
+        skipped = [r for r in self.runs if r.status.startswith("skipped")]
+        if skipped:
+            lines.append(f"├─ ⏭ skipped: {len(skipped)} (dedupe)")
         lines.append("")
-        lines.append(f"🔗 {len(self.graph.edges)} relationships")
+        # Top cross-verified entities with evidence sources.
+        verified = sorted(
+            (n for n in self.graph.nodes.values()
+             if len(n.discovered_by) >= 2),
+            key=lambda n: -len(n.discovered_by))[:5]
+        if verified:
+            lines.append("🔗 KEY CORRELATIONS (evidence-backed)")
+            for n in verified:
+                srcs = ", ".join(sorted(set(n.discovered_by)))
+                lines.append(
+                    f"├─ {n.kind} {n.value} ← [{srcs}] "
+                    f"({n.confidence.value})")
+            lines.append("")
+        if self.graph.conflicts:
+            lines.append("⚠️ CONFLICTS")
+            for c in self.graph.conflicts[:3]:
+                claims = " vs ".join(
+                    f"{t}:{v}" for t, v in c["claims"].items())
+                lines.append(f"├─ {c['subject']} · {c['aspect']}: {claims}")
+            lines.append("")
+        lines.append(f"🔗 Total relationships: {len(self.graph.edges)}")
         if self.ai_analysis:
             lines.append("")
             lines.append("🧠 AI ANALYSIS")

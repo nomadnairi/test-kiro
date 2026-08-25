@@ -8,8 +8,11 @@ from . import investigator, menu
 
 def build_root_router() -> Router:
     root = Router(name="root")
-    root.include_router(menu.router)
+    # investigator FIRST: its FSM-guarded handlers must win over menu's
+    # catch-all on_stray (@router.message(F.text) matches any text in any
+    # state, and aiogram stops at the first matching handler).
     root.include_router(investigator.router)
+    root.include_router(menu.router)
     return root
 
 

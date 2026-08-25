@@ -36,8 +36,9 @@ def test_graph_links_pivot_to_source():
     g = EntityGraph()
     g.add("domain", "example.com", "plan")
     g.add("ip", "93.184.216.34", "dns", related_to="example.com")
-    assert ("domain:example.com", "resolved_from",
-            "ip:93.184.216.34") in [(s, r, d) for s, r, d in g.edges]
+    assert any(s == "domain:example.com" and d == "ip:93.184.216.34"
+               and r == "resolved_from" and t == "dns"
+               for s, r, d, t, _c in g.edges)
 
 
 def test_kind_guess():

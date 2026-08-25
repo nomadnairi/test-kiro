@@ -62,11 +62,27 @@ async def inv_run(message: Message, container: Container,
         f"🧠 <b>Investigation started</b>\n🎯 {goal}\n\n"
         f"{inv.progress_line()}\n⏳ планирование…")
 
+    # PHASE 11 — live progress mirrors real execution events. Each line
+    # below appears only when the corresponding phase actually runs.
+    phases: dict[str, str] = {}
+
     async def progress(line: str) -> None:
+        if "запуск" in line or "пивот" in line:
+            phases.setdefault("discovery", line)
+        phases["last"] = line
+        board = (
+            f"🔎 <b>Investigation</b>\n🎯 Target: {goal}\n"
+            "━━━━━━━━━━━━━━\n"
+            "🧠 Understanding\n✅ Goal identified\n\n"
+            "🔧 Discovery\n"
+            f"{('✅ ' + phases['discovery']) if 'discovery' in phases else '⏳ Waiting'}\n\n"
+            "🔍 Enumeration\n"
+            f"🔄 Running… ({len(inv.runs)} tools done)\n\n"
+            "🧩 Correlation\n"
+            f"{'✅ ' + str(len(inv.graph.edges)) + ' links' if inv.graph.edges else '⏳ Waiting'}\n\n"
+            "📊 Verification\n⏳ Waiting")
         try:
-            await placeholder.edit_text(
-                f"🧠 <b>Investigation running</b>\n🎯 {goal}\n\n"
-                f"{line}\n{inv.progress_line()}")
+            await placeholder.edit_text(board)
         except Exception:  # noqa: BLE001, S110 - edit race is non-fatal
             pass
 
